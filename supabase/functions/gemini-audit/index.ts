@@ -121,7 +121,8 @@ serve(async (req) => {
           title: data.title,
           description: data.description,
           requirements: data.requirements,
-          payment_algo: data.payment_algo,
+          payment_algo: data.payment_algo || 0,
+          fiat_bounty_amount: data.fiat_bounty_amount || 0,
           score_threshold: data.score_threshold,
           wallet_address: data.wallet_address,
           owner_id: data.owner_id ?? null,
@@ -244,7 +245,7 @@ Include an entry in "results" for EVERY requirement listed above.`;
 
       const score: number = evaluationResult.overall_score ?? 0;
       const passed: boolean = score >= (project.score_threshold ?? 80);
-      const finalStatus = passed ? 'COMPLETED' : 'OPEN'; // reopen if not passed
+      const finalStatus = passed ? 'COMPLETED' : 'IN_PROGRESS'; // keep IN_PROGRESS for revision if failed
 
       // ── Insert into submissions table ──────────────────────
       const { data: submission, error: subErr } = await supabase
@@ -271,6 +272,7 @@ Include an entry in "results" for EVERY requirement listed above.`;
         .from('projects')
         .update({
           status: finalStatus,
+          payment_status: passed ? 'RELEASED_TO_DEV' : project.payment_status,
           evaluation_result: evaluationResult,
           github_url: githubUrl,
           developer_id: developerId ?? null,
@@ -283,6 +285,19 @@ Include an entry in "results" for EVERY requirement listed above.`;
         .single();
 
       if (updateErr) throw updateErr;
+
+      // ── Fire Email Notification if Passed ──────────────────
+      if (passed) {
+        supabase.functions.invoke('send-email', { body: {
+          action: "audit_passed",
+          payload: { 
+            clientId: project.owner_id, 
+            developerId: developerId,
+            projectTitle: project.title,
+            score
+          }
+        }});
+      }
 
       return json({
         project: updatedProject,

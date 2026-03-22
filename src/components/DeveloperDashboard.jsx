@@ -5,10 +5,82 @@ import useStore from "../store/useStore";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 import {
-  Github, CheckCircle2, AlertCircle, Loader2, X, Shield, LogOut, ExternalLink, Search
+  Github, CheckCircle2, AlertCircle, Loader2, X, Shield, LogOut, ExternalLink, Search, Send, MessageSquare
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import { useNavigate } from "react-router-dom";
+import ChatBox from "./ChatBox";
+
+// ─── Bid Modal ──────────────────────────────────────────────
+function BidModal({ project, onClose, onRefresh }) {
+  const [amount, setAmount] = useState(project.fiat_bounty_amount || 100);
+  const [proposal, setProposal] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!proposal.trim()) return alert("Please enter a proposal.");
+    setLoading(true);
+
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    // Check if already bid
+    const { data: existing } = await supabase.from("bids")
+      .select("id").eq("project_id", project.id).eq("developer_id", session.user.id).single();
+
+    if (existing) {
+      alert("You have already placed a bid on this project.");
+      setLoading(false);
+      return onClose();
+    }
+
+    const { error } = await supabase.from("bids").insert({
+      project_id: project.id,
+      developer_id: session.user.id,
+      bid_amount: amount,
+      proposal_text: proposal
+    });
+
+    setLoading(false);
+    if (error) {
+      alert("Error: " + error.message);
+    } else {
+      alert("Bid placed! The client will review your proposal.");
+      onRefresh();
+      onClose();
+    }
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      style={{ position: "fixed", inset: 0, background: "rgba(6,9,18,0.92)", zIndex: 200, display: "grid", placeItems: "center", padding: "2rem", backdropFilter: "blur(12px)" }}>
+      <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="glass-card"
+        style={{ maxWidth: 520, width: "100%", padding: "2.5rem", position: "relative" }}>
+        <button onClick={onClose} style={{ position: "absolute", top: "1.5rem", right: "1.5rem", background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer" }}>
+          <X size={20} />
+        </button>
+        <h3 style={{ fontWeight: 800, fontSize: "1.5rem", marginBottom: "0.25rem" }}>Submit Bid</h3>
+        <p style={{ color: "rgba(255,255,255,0.45)", fontSize: "0.9rem", marginBottom: "1.5rem" }}>{project.title}</p>
+        
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: "1.25rem" }}>
+            <label style={{ display: "block", fontSize: "0.8rem", color: "rgba(255,255,255,0.5)", marginBottom: "0.4rem" }}>Bid Amount ($USD)</label>
+            <input type="number" className="signin-input" value={amount} onChange={e => setAmount(e.target.value)} required min={10} style={{ fontSize: "0.9rem" }} />
+          </div>
+          <div style={{ marginBottom: "1.5rem" }}>
+            <label style={{ display: "block", fontSize: "0.8rem", color: "rgba(255,255,255,0.5)", marginBottom: "0.4rem" }}>Cover Letter / Proposal</label>
+            <textarea className="signin-input" value={proposal} onChange={e => setProposal(e.target.value)} required rows={4} placeholder="Why should the client hire you?" style={{ resize: "vertical", fontSize: "0.9rem" }} />
+          </div>
+
+          <button type="submit" className="btn-primary" style={{ width: "100%", display: "flex", justifyContent: "center", alignItems: "center", gap: 8 }} disabled={loading}>
+            {loading ? <Loader2 size={16} className="spin" /> : <Send size={16} />}
+            Place Bid
+          </button>
+        </form>
+      </motion.div>
+    </motion.div>
+  );
+}
 
 // ─── Submission Modal ─────────────────────────────────────────
 function SubmitModal({ project, geminiApiKey, onClose, onEval }) {
@@ -64,7 +136,7 @@ function SubmitModal({ project, geminiApiKey, onClose, onEval }) {
                 <Github size={20} color="#66d3ff" />
               </div>
               <div>
-                <h3 style={{ fontWeight: 700, fontSize: "1.1rem" }}>Submit Work</h3>
+                <h3 style={{ fontWeight: 700, fontSize: "1.1rem" }}>Submit Code</h3>
                 <p style={{ color: "rgba(255,255,255,0.45)", fontSize: "0.8rem" }}>{project.title}</p>
               </div>
             </div>
@@ -87,13 +159,12 @@ function SubmitModal({ project, geminiApiKey, onClose, onEval }) {
           </form>
         ) : (
           <div style={{ textAlign: "center", padding: "2rem 0" }}>
-            <Loader2 size={48} color="#66d3ff" style={{ animation: "spin 1s linear infinite", margin: "0 auto 1.5rem" }} />
+            <Loader2 size={48} color="#66d3ff" className="spin" style={{ margin: "0 auto 1.5rem" }} />
             <h3 style={{ marginBottom: "0.5rem" }}>Gemini AI Auditing…</h3>
             <p style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.9rem" }}>Fetching repo &amp; scanning requirements</p>
           </div>
         )}
       </motion.div>
-      <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
     </motion.div>
   );
 }
@@ -162,8 +233,12 @@ export default function DeveloperDashboard() {
   const [mySubmissions, setMySubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [submitProject, setSubmitProject] = useState(null);
+  
+  const [submitProject, setSubmitProject] = useState(null); // For code submission
+  const [bidProject, setBidProject] = useState(null); // For bidding on OPEN projects
   const [evaluation, setEvaluation] = useState(null);
+  const [chatProject, setChatProject] = useState(null);
+  
   const [activeTab, setActiveTab] = useState("bounties"); // bounties | submissions
 
   const loadData = async () => {
@@ -175,7 +250,7 @@ export default function DeveloperDashboard() {
       const { data } = await supabase
         .from("projects")
         .select("*")
-        .eq("status", "OPEN")
+        .or(`status.eq.OPEN,and(status.eq.IN_PROGRESS,developer_id.eq.${session.user.id})`)
         .order("created_at", { ascending: false });
       setProjects(data || []);
     } else {
@@ -206,6 +281,8 @@ export default function DeveloperDashboard() {
     loadData(); // refresh list
   };
 
+  const statusColor = (s) => ({ OPEN: "#66d3ff", IN_PROGRESS: "#fbbf24", COMPLETED: "#4ade80" }[s] || "#666");
+
   return (
     <div style={{ minHeight: "100vh", background: "#060912", color: "#fff" }}>
       <Navbar />
@@ -230,7 +307,7 @@ export default function DeveloperDashboard() {
         {/* Tabs */}
         <div style={{ display: "flex", gap: "1rem", marginBottom: "2.5rem", borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "1rem" }}>
           <button onClick={() => setActiveTab("bounties")} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1.05rem", fontWeight: 700, color: activeTab === "bounties" ? "#fff" : "rgba(255,255,255,0.4)" }}>
-            Open Bounties
+            Bounties Market
           </button>
           <button onClick={() => setActiveTab("submissions")} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1.05rem", fontWeight: 700, color: activeTab === "submissions" ? "#fff" : "rgba(255,255,255,0.4)" }}>
             My Submissions
@@ -247,8 +324,8 @@ export default function DeveloperDashboard() {
 
             {loading ? (
               <div style={{ textAlign: "center", padding: "4rem 0", color: "rgba(255,255,255,0.3)" }}>
-                <Loader2 size={36} style={{ animation: "spin 1s linear infinite", margin: "0 auto 1rem" }} />
-                <p>Loading bounties…</p>
+                <Loader2 size={36} className="spin" style={{ margin: "0 auto 1rem" }} />
+                <p>Loading market…</p>
               </div>
             ) : filteredProjects.length === 0 ? (
               <div style={{ textAlign: "center", padding: "5rem 0", color: "rgba(255,255,255,0.25)" }}>
@@ -259,10 +336,11 @@ export default function DeveloperDashboard() {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "1.5rem" }}>
                 {filteredProjects.map((p, i) => (
                   <motion.div key={p.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
-                    className="glass-card" style={{ padding: "1.5rem", display: "flex", flexDirection: "column" }}>
+                    className="glass-card" style={{ padding: "1.5rem", display: "flex", flexDirection: "column", border: p.status === 'IN_PROGRESS' ? '1px solid rgba(251, 191, 36, 0.3)' : undefined }}>
+                    
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-                      <span style={{ fontSize: "0.72rem", padding: "0.22rem 0.65rem", borderRadius: 4, background: "rgba(102,211,255,0.1)", color: "#66d3ff", fontWeight: 700 }}>OPEN</span>
-                      <span style={{ fontWeight: 800, color: "#4ade80", fontSize: "1rem" }}>{p.payment_algo} ALGO</span>
+                      <span style={{ fontSize: "0.72rem", padding: "0.22rem 0.65rem", borderRadius: 4, background: `${statusColor(p.status)}20`, color: statusColor(p.status), fontWeight: 700 }}>{p.status}</span>
+                      <span style={{ fontWeight: 800, color: "#4ade80", fontSize: "1rem" }}>${p.fiat_bounty_amount || p.payment_algo} USD</span>
                     </div>
 
                     <h3 style={{ marginBottom: "0.4rem", fontSize: "1.05rem" }}>{p.title}</h3>
@@ -281,10 +359,21 @@ export default function DeveloperDashboard() {
                       Score threshold: {p.score_threshold || 80}%
                     </div>
 
-                    <button className="btn-primary" style={{ width: "100%", fontSize: "0.85rem" }}
-                      onClick={() => setSubmitProject(p)}>
-                      <Github size={14} /> Submit Work
-                    </button>
+                    {p.status === 'OPEN' ? (
+                      <button className="btn-secondary" style={{ width: "100%", fontSize: "0.85rem" }} onClick={() => setBidProject(p)}>
+                        Submit Bid
+                      </button>
+                    ) : (
+                      <div style={{ display: "flex", gap: "0.5rem" }}>
+                        <button className="btn-primary" style={{ flex: 1, fontSize: "0.85rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }} onClick={() => setSubmitProject(p)}>
+                          <Github size={14} /> Submit Code (Escrow Locked)
+                        </button>
+                        <button className="btn-secondary" style={{ padding: "0 1rem", display: "grid", placeItems: "center" }}
+                          onClick={() => setChatProject(p)}>
+                          <MessageSquare size={16} />
+                        </button>
+                      </div>
+                    )}
                   </motion.div>
                 ))}
               </div>
@@ -296,7 +385,7 @@ export default function DeveloperDashboard() {
           <>
             {loading ? (
               <div style={{ textAlign: "center", padding: "4rem 0", color: "rgba(255,255,255,0.3)" }}>
-                <Loader2 size={36} style={{ animation: "spin 1s linear infinite" }} />
+                <Loader2 size={36} className="spin" />
               </div>
             ) : mySubmissions.length === 0 ? (
               <div style={{ textAlign: "center", padding: "5rem 0", color: "rgba(255,255,255,0.25)" }}>
@@ -337,14 +426,19 @@ export default function DeveloperDashboard() {
       <Footer />
 
       <AnimatePresence>
+        {bidProject && <BidModal project={bidProject} onClose={() => setBidProject(null)} onRefresh={loadData} />}
         {submitProject && (
           <SubmitModal project={submitProject} geminiApiKey={geminiApiKey}
             onClose={() => setSubmitProject(null)}
             onEval={result => { setSubmitProject(null); handleEval(result); }} />
         )}
         {evaluation && <EvalOverlay evaluation={evaluation} onClose={() => setEvaluation(null)} />}
+        {chatProject && <ChatBox project={chatProject} onClose={() => setChatProject(null)} />}
       </AnimatePresence>
-      <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
+      <style>{`
+        @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+        .spin { animation: spin 1s linear infinite; }
+      `}</style>
     </div>
   );
 }

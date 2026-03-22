@@ -6,17 +6,18 @@ import Navbar from "./Navbar";
 import Footer from "./Footer";
 import {
   Zap, Shield, Plus, X, CheckCircle2, AlertCircle, Loader2,
-  ExternalLink, LogOut
+  ExternalLink, LogOut, MessageSquare
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import { useNavigate } from "react-router-dom";
+import ChatBox from "./ChatBox";
 
 // ─── Create Project Modal ──────────────────────────────────────
 function CreateProjectModal({ onClose, onCreated, geminiApiKey }) {
   const { userProfile } = useStore();
   const [step, setStep] = useState("form"); // form | creating | done
   const [form, setForm] = useState({
-    title: "", description: "", requirements: "", payment_algo: 10, score_threshold: 80
+    title: "", description: "", requirements: "", fiat_bounty_amount: 100, score_threshold: 80
   });
   const [error, setError] = useState("");
   const [createdProject, setCreatedProject] = useState(null);
@@ -39,7 +40,7 @@ function CreateProjectModal({ onClose, onCreated, geminiApiKey }) {
           title: form.title,
           description: form.description,
           requirements: reqs,
-          payment_algo: parseFloat(form.payment_algo),
+          fiat_bounty_amount: parseFloat(form.fiat_bounty_amount),
           score_threshold: parseInt(form.score_threshold),
           wallet_address: userProfile?.wallet_address || session?.user?.email || "unknown",
           owner_id: session?.user?.id,
@@ -94,9 +95,9 @@ function CreateProjectModal({ onClose, onCreated, geminiApiKey }) {
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.5rem" }}>
               <div>
-                <label style={{ display: "block", fontSize: "0.8rem", color: "rgba(255,255,255,0.5)", marginBottom: "0.4rem" }}>Budget (ALGO)</label>
-                <input type="number" className="signin-input" value={form.payment_algo} min={0.1} step={0.1}
-                  onChange={e => setForm(f => ({ ...f, payment_algo: e.target.value }))} style={{ fontSize: "0.9rem" }} />
+                <label style={{ display: "block", fontSize: "0.8rem", color: "rgba(255,255,255,0.5)", marginBottom: "0.4rem" }}>Budget ($USD)</label>
+                <input type="number" className="signin-input" value={form.fiat_bounty_amount} min={10} step={1}
+                  onChange={e => setForm(f => ({ ...f, fiat_bounty_amount: e.target.value }))} style={{ fontSize: "0.9rem" }} />
               </div>
               <div>
                 <label style={{ display: "block", fontSize: "0.8rem", color: "rgba(255,255,255,0.5)", marginBottom: "0.4rem" }}>Score Threshold (%)</label>
@@ -261,6 +262,151 @@ function SubmissionsModal({ project, onClose }) {
   );
 }
 
+// ─── Bids Modal ───────────────────────────────────────────────
+const loadRazorpay = () => new Promise((resolve) => {
+  if (window.Razorpay) return resolve(true);
+  const script = document.createElement("script");
+  script.src = "https://checkout.razorpay.com/v1/checkout.js";
+  script.onload = () => resolve(true);
+  script.onerror = () => resolve(false);
+  document.body.appendChild(script);
+});
+
+function BidsModal({ project, onClose, onRefresh }) {
+  const [bids, setBids] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      const { data, error } = await supabase
+        .from("bids")
+        .select("*, developer:developer_id(id)")
+        .eq("project_id", project.id)
+        .order("created_at", { ascending: false });
+      if (!error && data) setBids(data);
+      setLoading(false);
+    }
+    load();
+  }, [project.id]);
+
+  const handleAcceptBid = async (bid) => {
+    setLoading(true);
+    const scriptLoaded = await loadRazorpay();
+    if (!scriptLoaded) {
+      alert("Failed to load Razorpay SDK. Check connection.");
+      setLoading(false);
+      return;
+    }
+
+    // 1. Create order
+    const { data: orderData, error: orderErr } = await supabase.functions.invoke("razorpay-checkout", {
+      body: { action: "create_order", bidId: bid.id }
+    });
+
+    if (orderErr || orderData?.error) {
+      alert(orderData?.error || orderErr?.message || "Failed to create order.");
+      setLoading(false);
+      return;
+    }
+
+    const { order_id, amount, currency, key } = orderData;
+
+    // 2. Open Razorpay Checkout overlay
+    const options = {
+      key,
+      amount,
+      currency,
+      name: "KYTE Escrow",
+      description: `Fund Project: ${project.title}`,
+      order_id,
+      handler: async function (response) {
+        // 3. Verify Payment
+        const { data: verifyData, error: verifyErr } = await supabase.functions.invoke("razorpay-checkout", {
+          body: {
+            action: "verify_payment",
+            bidId: bid.id,
+            paymentId: response.razorpay_payment_id,
+            orderId: response.razorpay_order_id,
+            signature: response.razorpay_signature
+          }
+        });
+
+        if (verifyErr || verifyData?.error) {
+          alert("Payment Verification Failed! " + (verifyData?.error || verifyErr?.message));
+        } else {
+          alert("Payment Successful! Developer is now hired and funds are locked in Escrow.");
+          onRefresh();
+          onClose();
+        }
+      },
+      theme: { color: "#66d3ff" }
+    };
+
+    const rzp = new window.Razorpay(options);
+    rzp.on('payment.failed', function (response){
+      alert("Payment Failed: " + response.error.description);
+    });
+    rzp.open();
+    setLoading(false);
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      style={{ position: "fixed", inset: 0, background: "rgba(6,9,18,0.92)", zIndex: 200, display: "grid", placeItems: "center", padding: "2rem", backdropFilter: "blur(12px)" }}>
+      <div className="glass-card" style={{ maxWidth: 600, width: "100%", padding: "2rem", position: "relative", maxHeight: "85vh", overflowY: "auto" }}>
+        <button onClick={onClose} style={{ position: "absolute", top: "1.5rem", right: "1.5rem", background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer" }}>
+          <X size={20} />
+        </button>
+        <h2 style={{ fontSize: "1.5rem", fontWeight: 800, marginBottom: "0.25rem" }}>Bids: {project.title}</h2>
+        <p style={{ color: "rgba(255,255,255,0.4)", marginBottom: "2rem", fontSize: "0.9rem" }}>Review developer proposals and set your Escrow.</p>
+
+        {loading ? (
+          <div style={{ textAlign: "center", padding: "2rem 0", color: "rgba(255,255,255,0.3)" }}>
+            <Loader2 size={32} style={{ animation: "spin 1s linear infinite", margin: "0 auto 1rem" }} />
+          </div>
+        ) : bids.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "2rem 0", background: "rgba(255,255,255,0.02)", borderRadius: 12 }}>
+            <p style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.95rem" }}>No bids yet. Developers are taking a look.</p>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gap: "1rem" }}>
+            {bids.map(bid => (
+              <div key={bid.id} style={{ background: "rgba(255,255,255,0.03)", borderRadius: 12, padding: "1.25rem", border: "1px solid rgba(255,255,255,0.05)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.75rem" }}>
+                  <div>
+                    <span style={{ fontSize: "0.85rem", color: "rgba(255,255,255,0.5)", display: "block", marginBottom: 4 }}>
+                      Dev: {bid.developer_id.substring(0, 8)}...
+                    </span>
+                    <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.4)" }}>
+                      {new Date(bid.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <span style={{ fontWeight: 800, fontSize: "1.2rem", color: "#4ade80" }}>
+                    ${bid.bid_amount}
+                  </span>
+                </div>
+                <div style={{ background: "rgba(0,0,0,0.2)", padding: "1rem", borderRadius: 8, fontSize: "0.85rem", color: "rgba(255,255,255,0.8)", marginBottom: "1rem" }}>
+                  "{bid.proposal_text}"
+                </div>
+                {bid.status === "PENDING" && (
+                  <button className="btn-primary" style={{ width: "100%", fontSize: "0.85rem", padding: "0.6rem" }} onClick={() => handleAcceptBid(bid)} disabled={loading}>
+                    {loading ? <Loader2 size={16} className="spin" /> : "Accept & Pay via Razorpay"}
+                  </button>
+                )}
+                {bid.status === "ACCEPTED" && (
+                  <button className="btn-secondary" style={{ width: "100%", fontSize: "0.85rem", padding: "0.6rem", opacity: 0.5 }} disabled>
+                    Bid Accepted
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
 // ─── Client Dashboard ─────────────────────────────────────────
 export default function ClientDashboard() {
   const { userProfile } = useStore();
@@ -270,21 +416,24 @@ export default function ClientDashboard() {
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [selectedProjectSubs, setSelectedProjectSubs] = useState(null);
+  const [selectedProjectBids, setSelectedProjectBids] = useState(null);
+  const [chatProject, setChatProject] = useState(null);
+
+  const loadProjects = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    const { data } = await supabase
+      .from("projects")
+      .select("*")
+      .eq("owner_id", session.user.id)
+      .order("created_at", { ascending: false });
+    setProjects(data || []);
+    setLoading(false);
+  };
 
   // Fetch this client's projects
   useEffect(() => {
-    async function load() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-      const { data } = await supabase
-        .from("projects")
-        .select("*")
-        .eq("owner_id", session.user.id)
-        .order("created_at", { ascending: false });
-      setProjects(data || []);
-      setLoading(false);
-    }
-    load();
+    loadProjects();
   }, []);
 
   const handleLogout = async () => {
@@ -341,7 +490,7 @@ export default function ClientDashboard() {
               <motion.div key={p.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }} className="glass-card" style={{ padding: "1.5rem" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
                   <span style={{ fontSize: "0.72rem", padding: "0.2rem 0.6rem", borderRadius: 4, background: `${statusColor(p.status)}18`, color: statusColor(p.status), fontWeight: 700 }}>{p.status}</span>
-                  <span style={{ fontWeight: 800, color: "#4ade80", fontSize: "0.95rem" }}>{p.payment_algo} ALGO</span>
+                  <span style={{ fontWeight: 800, color: "#4ade80", fontSize: "0.95rem" }}>${p.fiat_bounty_amount || p.payment_algo} USD</span>
                 </div>
                 <h3 style={{ marginBottom: "0.4rem", fontSize: "1.05rem" }}>{p.title}</h3>
                 <p style={{ fontSize: "0.83rem", color: "rgba(255,255,255,0.45)", marginBottom: "1.25rem", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{p.description}</p>
@@ -366,10 +515,23 @@ export default function ClientDashboard() {
                    )}
                 </div>
 
-                <button className="btn-secondary" style={{ width: "100%", fontSize: "0.85rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}
-                  onClick={() => setSelectedProjectSubs(p)}>
-                  View Submissions
-                </button>
+                {p.status === 'OPEN' ? (
+                  <button className="btn-secondary" style={{ width: "100%", fontSize: "0.85rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}
+                    onClick={() => setSelectedProjectBids(p)}>
+                    Review Bids
+                  </button>
+                ) : (
+                  <div style={{ display: "flex", gap: "0.5rem" }}>
+                    <button className="btn-secondary" style={{ flex: 1, fontSize: "0.85rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}
+                      onClick={() => setSelectedProjectSubs(p)}>
+                      View Submissions
+                    </button>
+                    <button className="btn-secondary" style={{ padding: "0 1rem", display: "grid", placeItems: "center" }}
+                      onClick={() => setChatProject(p)}>
+                      <MessageSquare size={16} />
+                    </button>
+                  </div>
+                )}
               </motion.div>
             ))}
           </div>
@@ -380,8 +542,10 @@ export default function ClientDashboard() {
 
       {/* Modals */}
       <AnimatePresence>
-        {showCreate && <CreateProjectModal onClose={() => setShowCreate(false)} onCreated={p => setProjects(prev => [p, ...prev])} geminiApiKey={geminiApiKey} />}
+        {showCreate && <CreateProjectModal onClose={() => setShowCreate(false)} onCreated={p => { setShowCreate(false); loadProjects(); }} geminiApiKey={geminiApiKey} />}
         {selectedProjectSubs && <SubmissionsModal project={selectedProjectSubs} onClose={() => setSelectedProjectSubs(null)} />}
+        {selectedProjectBids && <BidsModal project={selectedProjectBids} onClose={() => setSelectedProjectBids(null)} onRefresh={loadProjects} />}
+        {chatProject && <ChatBox project={chatProject} onClose={() => setChatProject(null)} />}
       </AnimatePresence>
 
 

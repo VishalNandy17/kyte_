@@ -15,6 +15,7 @@ import RoleSelect from './components/RoleSelect'
 import ProtectedRoute from './components/ProtectedRoute'
 import ClientDashboard from './components/ClientDashboard'
 import DeveloperDashboard from './components/DeveloperDashboard'
+import AIAgent from './components/AIAgent'
 
 function LandingPage() {
   return (
@@ -66,6 +67,7 @@ function App() {
         {/* Catch-all */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <AIAgent />
     </div>
   )
 }

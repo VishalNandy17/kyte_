@@ -1,4 +1,4 @@
-# CodePact
+# KYTE
 
 > **Trustless dev-client contracts. AI-enforced. Algorand-settled.**
 > No middleman. No trust required. Code either works or payment doesn't move.
@@ -10,9 +10,9 @@
 
 ---
 
-## 🚀 What is CodePact?
+## 🚀 What is KYTE?
 
-CodePact is a decentralized platform that automates the relationship between developers and clients. By combining **Algorand Smart Contracts** with **AI-powered code auditing**, we ensure that payments are only released when the code meets the predefined requirements.
+KYTE is a decentralized platform that automates the relationship between developers and clients. By combining **Algorand Smart Contracts** with **AI-powered code auditing**, we ensure that payments are only released when the code meets the predefined requirements.
 
 ### The Problem
 Traditional freelancing depends on trust or expensive escrow services. Disputes over "code quality" often lead to payment delays or unfair chargebacks.
@@ -88,7 +88,7 @@ npm run dev
 ---
 
 ## 🛡 Security & Audit
-CodePact uses an **AI Oracle** to bridge the gap between GitHub and the Algorand blockchain. The AI's evaluation is cryptographically signed before being submitted to the smart contract, ensuring the integrity of the release process.
+KYTE uses an **AI Oracle** to bridge the gap between GitHub and the Algorand blockchain. The AI's evaluation is cryptographically signed before being submitted to the smart contract, ensuring the integrity of the release process.
 
 ---
 
@@ -96,4 +96,4 @@ CodePact uses an **AI Oracle** to bridge the gap between GitHub and the Algorand
 Distributed under the MIT License. See `LICENSE` for more information.
 
 --
-Built with ⚡ by the CodePact Team.
+Built with ⚡ by the KYTE Team.
