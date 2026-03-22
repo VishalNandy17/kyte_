@@ -15,6 +15,26 @@ export default function SignIn() {
   const [errorMessage, setErrorMessage] = useState('');
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
+  // After authentication, check if user has a role saved in Supabase
+  const navigateByRole = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('role')
+      .eq('id', session.user.id)
+      .maybeSingle();
+
+    if (!profile?.role) {
+      router('/select-role');
+    } else if (profile.role === 'client') {
+      router('/dashboard/client');
+    } else {
+      router('/dashboard/developer');
+    }
+  };
+
   const handlePeraConnect = async () => {
     setErrorMessage('');
     setIsLoading(true);
@@ -26,7 +46,7 @@ export default function SignIn() {
         try {
           const token = await issueKyteToken(address);
           setJwtToken(token);
-          router('/dashboard');
+          await navigateByRole();
         } catch (e) {
           console.error("Auth failed", e);
           setErrorMessage(e.message || "Failed to issue session token. Check backend.");
@@ -44,31 +64,39 @@ export default function SignIn() {
     }
   };
 
-  useEffect(() => {
-    const handleMouseMove = (e) => {
-      setMousePos({ x: e.clientX, y: e.clientY });
-    };
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, []);
-
   const handleGoogleSignIn = async () => {
     setErrorMessage('');
     setIsLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/dashboard`
+        redirectTo: `${window.location.origin}/signin?provider=google`
       }
     });
     if (error) {
       console.error('Error signing in:', error.message);
       setErrorMessage(error.message || 'Unable to sign in. Please try again.');
       setIsLoading(false);
-      return;
     }
-    setIsLoading(false);
+    // Navigation happens via the useEffect below after OAuth redirect
   };
+
+  // Handle OAuth redirect back — check session + navigate
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) {
+        await navigateByRole();
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Cursor glow tracking
+  useEffect(() => {
+    const handleMouseMove = (e) => setMousePos({ x: e.clientX, y: e.clientY });
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
 
   return (
     <div className="signin-page">
