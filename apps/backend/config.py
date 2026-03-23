@@ -23,6 +23,7 @@ class Settings:
     teal_clear_path: str = os.getenv("TEAL_CLEAR_PATH", "blockchain/contracts/clear.teal")
     supabase_url: str = os.getenv("SUPABASE_URL", "")
     supabase_anon_key: str = os.getenv("SUPABASE_ANON_KEY", "")
+    backend_mnemonic: str = os.getenv("BACKEND_MNEMONIC", "")
 
     @property
     def cors_origins(self) -> list[str]:

@@ -5,11 +5,15 @@ import useStore from "../store/useStore";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 import {
-  Github, CheckCircle2, AlertCircle, Loader2, X, Shield, LogOut, ExternalLink, Search, Send, MessageSquare
+  Github, CheckCircle2, AlertCircle, Loader2, X, Shield, LogOut, ExternalLink, Search, Send, MessageSquare, Plus, Users, User, Settings as SettingsIcon, Code, Trophy, DollarSign
 } from "lucide-react";
 import confetti from "canvas-confetti";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import ChatBox from "./ChatBox";
+import WorkspaceModal from "./WorkspaceModal";
+import WalletBalance from "./WalletBalance";
+import { submitProject } from "../services/kyteApi";
+import { createClaimTxn, signTransaction, getAlgodClient } from "../services/wallet";
 
 // ─── Bid Modal ──────────────────────────────────────────────
 function BidModal({ project, onClose, onRefresh }) {
@@ -34,11 +38,16 @@ function BidModal({ project, onClose, onRefresh }) {
       return onClose();
     }
 
-    const { error } = await supabase.from("bids").insert({
-      project_id: project.id,
-      developer_id: session.user.id,
-      bid_amount: amount,
-      proposal_text: proposal
+    const { data: bidData, error } = await supabase.functions.invoke("bid-engine", {
+      body: {
+        action: "submit_bid",
+        data: {
+          projectId: project.id,
+          developerId: session.user.id,
+          bidAmount: amount,
+          proposalText: proposal
+        }
+      }
     });
 
     setLoading(false);
@@ -53,28 +62,35 @@ function BidModal({ project, onClose, onRefresh }) {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      style={{ position: "fixed", inset: 0, background: "rgba(6,9,18,0.92)", zIndex: 200, display: "grid", placeItems: "center", padding: "2rem", backdropFilter: "blur(12px)" }}>
-      <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="glass-card"
-        style={{ maxWidth: 520, width: "100%", padding: "2.5rem", position: "relative" }}>
-        <button onClick={onClose} style={{ position: "absolute", top: "1.5rem", right: "1.5rem", background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer" }}>
+      style={{ position: "fixed", inset: 0, background: "rgba(6,9,18,0.85)", zIndex: 200, display: "grid", placeItems: "center", padding: "2rem", backdropFilter: "blur(20px)" }}>
+      <motion.div 
+        initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} 
+        className="dash-glass"
+        style={{ maxWidth: 540, width: "100%", padding: "3rem", position: "relative", boxShadow: "0 40px 100px rgba(0,0,0,0.8)" }}
+      >
+        <button onClick={onClose} style={{ position: "absolute", top: "1.5rem", right: "1.5rem", background: "rgba(255,255,255,0.03)", border: "none", color: "rgba(255,255,255,0.4)", borderRadius: "50%", width: 36, height: 36, display: "grid", placeItems: "center", cursor: "pointer" }}>
           <X size={20} />
         </button>
-        <h3 style={{ fontWeight: 800, fontSize: "1.5rem", marginBottom: "0.25rem" }}>Submit Bid</h3>
-        <p style={{ color: "rgba(255,255,255,0.45)", fontSize: "0.9rem", marginBottom: "1.5rem" }}>{project.title}</p>
+
+        <div className="dash-subtitle" style={{ marginBottom: "0.5rem" }}>
+          <Plus size={14} className="animate-pulse" color="#66d3ff" /> PROPOSAL SUBMISSION
+        </div>
+        <h3 className="dash-title" style={{ fontSize: "1.75rem", marginBottom: "0.5rem" }}>Submit Market Bid</h3>
+        <p style={{ color: "rgba(102, 211, 255, 0.45)", fontSize: "0.95rem", marginBottom: "2.5rem", fontWeight: 600 }}>{project.title}</p>
         
         <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: "1.25rem" }}>
-            <label style={{ display: "block", fontSize: "0.8rem", color: "rgba(255,255,255,0.5)", marginBottom: "0.4rem" }}>Bid Amount ($USD)</label>
-            <input type="number" className="signin-input" value={amount} onChange={e => setAmount(e.target.value)} required min={10} style={{ fontSize: "0.9rem" }} />
-          </div>
           <div style={{ marginBottom: "1.5rem" }}>
-            <label style={{ display: "block", fontSize: "0.8rem", color: "rgba(255,255,255,0.5)", marginBottom: "0.4rem" }}>Cover Letter / Proposal</label>
-            <textarea className="signin-input" value={proposal} onChange={e => setProposal(e.target.value)} required rows={4} placeholder="Why should the client hire you?" style={{ resize: "vertical", fontSize: "0.9rem" }} />
+            <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, color: "rgba(255, 255, 255, 0.4)", marginBottom: "0.6rem", textTransform: 'uppercase', letterSpacing: '0.1em' }}>Bid Amount ($USD)</label>
+            <input type="number" className="signin-input" value={amount} onChange={e => setAmount(e.target.value)} required min={10} style={{ fontSize: "1rem", background: 'rgba(255,255,255,0.02)', padding: '1rem' }} />
+          </div>
+          <div style={{ marginBottom: "2.5rem" }}>
+            <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, color: "rgba(255, 255, 255, 0.4)", marginBottom: "0.6rem", textTransform: 'uppercase', letterSpacing: '0.1em' }}>Cover Letter / Strategy</label>
+            <textarea className="signin-input" value={proposal} onChange={e => setProposal(e.target.value)} required rows={4} placeholder="Why should the client trust your node for this execution?" style={{ resize: "vertical", fontSize: "0.95rem", background: 'rgba(255,255,255,0.02)', padding: '1rem' }} />
           </div>
 
-          <button type="submit" className="btn-primary" style={{ width: "100%", display: "flex", justifyContent: "center", alignItems: "center", gap: 8 }} disabled={loading}>
-            {loading ? <Loader2 size={16} className="spin" /> : <Send size={16} />}
-            Place Bid
+          <button type="submit" className="btn-primary" style={{ width: "100%", padding: "1.1rem", fontSize: "1rem", fontWeight: 800, display: "flex", justifyContent: "center", alignItems: "center", gap: 10 }} disabled={loading}>
+            {loading ? <Loader2 size={18} className="spin" /> : <Send size={18} />}
+            Commit Proposal
           </button>
         </form>
       </motion.div>
@@ -97,71 +113,71 @@ function SubmitModal({ project, geminiApiKey, onClose, onEval }) {
 
     const { data: { session } } = await supabase.auth.getSession();
 
-    const { data, error: fnErr } = await supabase.functions.invoke("gemini-audit", {
-      body: {
-        action: "submit",
-        geminiApiKey,
-        data: {
-           projectId: project.id,
-           githubUrl,
-           developerId: session?.user?.id,
-           developerEmail: session?.user?.email
-        }
-      }
-    });
+    try {
+      const result = await submitProject(
+        null,
+        {
+          projectId: project.id,
+          githubUrl,
+          appId: project.app_id,
+          geminiApiKey
+        },
+        session?.user?.id // This is a bit weird, should the wallet address be the sender? Yes.
+      );
 
-    if (fnErr || data?.error) {
-      setError(data?.error || fnErr?.message || "Audit failed.");
+      onEval(result);
+      onClose();
+    } catch (err) {
+      setError(err.message || "Audit failed.");
       setStep("form");
-      return;
     }
-
-    onEval(data);
-    onClose();
   };
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      style={{ position: "fixed", inset: 0, background: "rgba(6,9,18,0.92)", zIndex: 200, display: "grid", placeItems: "center", padding: "2rem", backdropFilter: "blur(12px)" }}>
-      <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="glass-card"
-        style={{ maxWidth: 520, width: "100%", padding: "2.5rem", position: "relative" }}>
-        <button onClick={onClose} style={{ position: "absolute", top: "1.5rem", right: "1.5rem", background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer" }}>
+      style={{ position: "fixed", inset: 0, background: "rgba(6,9,18,0.85)", zIndex: 200, display: "grid", placeItems: "center", padding: "2rem", backdropFilter: "blur(20px)" }}>
+      <motion.div 
+        initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} 
+        className="dash-glass"
+        style={{ maxWidth: 540, width: "100%", padding: "3rem", position: "relative", boxShadow: "0 40px 100px rgba(0,0,0,0.8)" }}
+      >
+        <button onClick={onClose} style={{ position: "absolute", top: "1.5rem", right: "1.5rem", background: "rgba(255,255,255,0.03)", border: "none", color: "rgba(255,255,255,0.4)", borderRadius: "50%", width: 36, height: 36, display: "grid", placeItems: "center", cursor: "pointer" }}>
           <X size={20} />
         </button>
 
         {step === "form" ? (
           <form onSubmit={handleSubmit}>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1.5rem" }}>
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: "rgba(102,211,255,0.1)", display: "grid", placeItems: "center" }}>
-                <Github size={20} color="#66d3ff" />
-              </div>
-              <div>
-                <h3 style={{ fontWeight: 700, fontSize: "1.1rem" }}>Submit Code</h3>
-                <p style={{ color: "rgba(255,255,255,0.45)", fontSize: "0.8rem" }}>{project.title}</p>
-              </div>
+            <div className="dash-subtitle" style={{ marginBottom: "0.5rem" }}>
+               <Shield size={14} className="animate-pulse" color="#66d3ff" /> PROTOCOL DELIVERY
             </div>
+            <h3 className="dash-title" style={{ fontSize: "1.75rem", marginBottom: "0.5rem" }}>Submit Evidence</h3>
+            <p style={{ color: "rgba(102, 211, 255, 0.45)", fontSize: "0.95rem", marginBottom: "2.5rem", fontWeight: 600 }}>{project.title}</p>
 
-            <div style={{ marginBottom: "1.25rem" }}>
-              <label style={{ display: "block", fontSize: "0.8rem", color: "rgba(255,255,255,0.5)", marginBottom: "0.4rem" }}>GitHub Repository URL</label>
+            <div style={{ marginBottom: "2.5rem" }}>
+              <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, color: "rgba(255, 255, 255, 0.4)", marginBottom: "0.6rem", textTransform: 'uppercase', letterSpacing: '0.1em' }}>GitHub Evidence URL</label>
               <div style={{ position: "relative" }}>
-                <Github style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", opacity: 0.35 }} size={16} />
-                <input className="signin-input" placeholder="https://github.com/you/project"
+                <Github style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", opacity: 0.35 }} size={20} />
+                <input className="signin-input" placeholder="https://github.com/talent/repository"
                   value={githubUrl} onChange={e => setGithubUrl(e.target.value)}
-                  style={{ paddingLeft: "2.5rem", fontSize: "0.9rem" }} />
+                  style={{ paddingLeft: "3rem", fontSize: "1rem", background: 'rgba(255,255,255,0.02)', padding: '1rem 3rem' }} />
               </div>
             </div>
 
-            {error && <p style={{ color: "#f87171", fontSize: "0.85rem", marginBottom: "1rem" }}>{error}</p>}
+            {error && <p style={{ color: "#f87171", fontSize: "0.85rem", marginBottom: "1.5rem", fontWeight: 600 }}>{error}</p>}
 
-            <button type="submit" className="btn-primary" style={{ width: "100%" }}>
-              Submit for AI Audit
+            <button type="submit" className="btn-primary" style={{ width: "100%", padding: "1.1rem", fontSize: "1.1rem", fontWeight: 800 }}>
+              Initialize AI Audit
             </button>
           </form>
         ) : (
-          <div style={{ textAlign: "center", padding: "2rem 0" }}>
-            <Loader2 size={48} color="#66d3ff" className="spin" style={{ margin: "0 auto 1.5rem" }} />
-            <h3 style={{ marginBottom: "0.5rem" }}>Gemini AI Auditing…</h3>
-            <p style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.9rem" }}>Fetching repo &amp; scanning requirements</p>
+          <div style={{ textAlign: "center", padding: "4rem 0" }}>
+            <div style={{ position: 'relative', width: 80, height: 80, margin: '0 auto 2.5rem' }}>
+              <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '4px solid rgba(102, 211, 255, 0.1)', borderTopColor: '#66d3ff', animation: 'spin 1.s linear infinite' }} />
+              <div style={{ position: 'absolute', inset: 15, borderRadius: '50%', border: '4px solid rgba(117, 154, 255, 0.1)', borderBottomColor: '#759aff', animation: 'spin 1.5s linear infinite reverse' }} />
+              <Shield size={32} color="#66d3ff" style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }} />
+            </div>
+            <h3 style={{ fontSize: "1.75rem", fontWeight: 800, marginBottom: "0.75rem", letterSpacing: "-0.02em" }}>Auditing Kernels…</h3>
+            <p style={{ color: "rgba(255,255,255,0.4)", fontSize: "1.1rem", lineHeight: 1.6 }}>Fetching evidence from version control <br/>and running requirement cross-checks.</p>
           </div>
         )}
       </motion.div>
@@ -177,50 +193,81 @@ function EvalOverlay({ evaluation, onClose }) {
   }, [passed]);
 
   return (
-    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
-      style={{ position: "fixed", inset: 0, background: "rgba(6,9,18,0.95)", zIndex: 201, display: "grid", placeItems: "center", padding: "2rem", overflowY: "auto" }}>
-      <div className="glass-card" style={{ maxWidth: 700, width: "100%", padding: "3rem", position: "relative" }}>
-        <button onClick={onClose} style={{ position: "absolute", top: "1.5rem", right: "1.5rem", background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer" }}>
-          <X size={22} />
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      style={{ position: "fixed", inset: 0, background: "rgba(6,9,18,0.9)", zIndex: 201, display: "grid", placeItems: "center", padding: "2rem", backdropFilter: "blur(30px)" }}>
+      <motion.div 
+        initial={{ y: 50, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        className="dash-glass" 
+        style={{ maxWidth: 840, width: "100%", padding: "4rem", position: "relative", boxShadow: "0 50px 120px rgba(0,0,0,0.9)", maxHeight: "90vh", overflowY: "auto" }}
+      >
+        <button onClick={onClose} style={{ position: "absolute", top: "2rem", right: "2rem", background: "rgba(255,255,255,0.03)", border: "none", color: "rgba(255,255,255,0.4)", borderRadius: "50%", width: 44, height: 44, display: "grid", placeItems: "center", cursor: "pointer" }}>
+          <X size={24} />
         </button>
-        <div style={{ textAlign: "center", marginBottom: "2.5rem" }}>
-          <div style={{ width: 110, height: 110, borderRadius: "50%", border: `8px solid ${passed ? "#4ade80" : "#f87171"}`, display: "grid", placeItems: "center", margin: "0 auto 1.5rem", fontSize: "2.2rem", fontWeight: 900 }}>
-            {evaluation.overall_score}
+
+        <div style={{ display: 'flex', gap: '3rem', alignItems: 'center', marginBottom: "4rem" }}>
+          <div style={{ position: 'relative', width: 140, height: 140, flexShrink: 0 }}>
+             <svg width="140" height="140" viewBox="0 0 140 140" style={{ transform: 'rotate(-90deg)' }}>
+                <circle cx="70" cy="70" r="64" fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="12" />
+                <circle cx="70" cy="70" r="64" fill="none" stroke={passed ? "#4ade80" : "#f87171"} strokeWidth="12" 
+                  strokeDasharray={402} strokeDashoffset={402 - (402 * evaluation.overall_score) / 100}
+                  strokeLinecap="round" style={{ transition: 'all 1.5s ease' }}
+                />
+             </svg>
+             <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', fontSize: "2.5rem", fontWeight: 900, color: '#fff' }}>
+                {evaluation.overall_score}
+             </div>
           </div>
-          <h2 style={{ fontSize: "1.8rem", fontWeight: 800 }}>{passed ? "Audit Passed! 🎉" : "Audit Failed"}</h2>
-          <p style={{ color: "rgba(255,255,255,0.5)", marginTop: "0.5rem" }}>
-            {passed ? "Your submission passed AI verification!" : "Requirements were not fully met."}
-          </p>
+          <div>
+            <div className="dash-subtitle" style={{ color: passed ? "#4ade80" : "#f87171" }}>
+               {passed ? "PROTOCOL VALIDATED" : "PROTOCOL REJECTED"}
+            </div>
+            <h2 className="dash-title" style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>{passed ? "Audit Pass! 🎉" : "Audit Failure"}</h2>
+            <p style={{ color: "rgba(255,255,255,0.4)", fontSize: "1.1rem", maxWidth: 400, lineHeight: 1.6 }}>
+               {passed ? "Quality index exceeds network threshold. Smart-escrow release authorized." : "Submission fails to meet the cryptographically signed requirements."}
+            </p>
+          </div>
         </div>
 
-        <div style={{ display: "grid", gap: "0.75rem", marginBottom: "2rem" }}>
+        <div style={{ display: "grid", gap: "1.25rem", marginBottom: "3rem" }}>
           {(evaluation.results || []).map((res, i) => (
-            <div key={i} style={{ display: "flex", gap: "1rem", padding: "1rem 1.25rem", background: "rgba(255,255,255,0.03)", borderRadius: 12, alignItems: "flex-start" }}>
-              {res.met ? <CheckCircle2 color="#4ade80" size={18} style={{ flexShrink: 0, marginTop: 2 }} /> : <AlertCircle color="#f87171" size={18} style={{ flexShrink: 0, marginTop: 2 }} />}
-              <div style={{ flex: 1 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.2rem" }}>
-                  <span style={{ fontWeight: 600, fontSize: "0.9rem" }}>{res.requirement}</span>
-                  <span style={{ fontSize: "0.8rem", fontWeight: 700, color: res.met ? "#4ade80" : "#f87171" }}>{res.score}/100</span>
-                </div>
-                <p style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.5)", margin: 0 }}>{res.reason}</p>
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 * i }}
+              key={i} 
+              style={{ display: "flex", gap: "1.5rem", padding: "1.5rem", background: "rgba(255,255,255,0.02)", borderRadius: 24, border: "1px solid rgba(255,255,255,0.03)", alignItems: "flex-start" }}
+            >
+              <div style={{ width: 32, height: 32, borderRadius: '50%', background: res.met ? 'rgba(74, 222, 128, 0.1)' : 'rgba(248, 113, 113, 0.1)', display: 'grid', placeItems: 'center', flexShrink: 0, marginTop: 4 }}>
+                {res.met ? <CheckCircle2 color="#4ade80" size={18} /> : <AlertCircle color="#f87171" size={18} />}
               </div>
-            </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem", gap: "1.5rem" }}>
+                  <span style={{ fontWeight: 800, fontSize: "1.1rem", color: '#fff' }}>{res.requirement}</span>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.3)', fontWeight: 800 }}>WEIGHT</div>
+                    <span style={{ fontSize: "1.2rem", fontWeight: 900, color: res.met ? "#4ade80" : "#f87171" }}>{res.score}</span>
+                  </div>
+                </div>
+                <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.4)", margin: 0, lineHeight: 1.6 }}>{res.reason}</p>
+              </div>
+            </motion.div>
           ))}
         </div>
 
         {evaluation.gap_report && (
-          <div style={{ padding: "1.25rem", background: "rgba(248,113,113,0.08)", borderRadius: 12, border: "1px solid rgba(248,113,113,0.2)", marginBottom: "2rem" }}>
-            <h4 style={{ color: "#f87171", marginBottom: "0.5rem", fontSize: "0.9rem" }}>Gap Report</h4>
-            <p style={{ fontSize: "0.88rem", lineHeight: 1.6, color: "rgba(255,255,255,0.7)" }}>{evaluation.gap_report}</p>
+          <div style={{ padding: "2rem", background: "rgba(248,113,113,0.03)", borderRadius: 28, border: "1px solid rgba(248,113,113,0.1)", marginBottom: "3rem" }}>
+            <h4 style={{ color: "#f87171", marginBottom: "0.75rem", fontSize: "1.1rem", textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 800 }}>Anomaly Gap Report</h4>
+            <p style={{ fontSize: "1rem", lineHeight: 1.7, color: "rgba(255,255,255,0.6)", margin: 0 }}>{evaluation.gap_report}</p>
           </div>
         )}
 
-        <div style={{ display: "flex", gap: "1rem" }}>
-          <button className={passed ? "btn-primary" : "btn-secondary"} style={{ flex: 1 }} onClick={onClose}>
-            {passed ? "Done" : "Revise & Resubmit"}
+        <div style={{ display: "flex", gap: "1.5rem" }}>
+          <button className={passed ? "btn-primary" : "btn-secondary"} style={{ flex: 1, padding: '1.25rem', fontSize: '1.1rem', fontWeight: 800 }} onClick={onClose}>
+            {passed ? "Protocol Finalized" : "Revise submission"}
           </button>
         </div>
-      </div>
+      </motion.div>
     </motion.div>
   );
 }
@@ -238,6 +285,7 @@ export default function DeveloperDashboard() {
   const [bidProject, setBidProject] = useState(null); // For bidding on OPEN projects
   const [evaluation, setEvaluation] = useState(null);
   const [chatProject, setChatProject] = useState(null);
+  const [workspaceProject, setWorkspaceProject] = useState(null);
   
   const [activeTab, setActiveTab] = useState("bounties"); // bounties | submissions
 
@@ -264,6 +312,12 @@ export default function DeveloperDashboard() {
     setLoading(false);
   };
 
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setGoogleUser(user);
+    });
+  }, []);
+
   useEffect(() => { loadData(); }, [activeTab]);
 
   const filteredProjects = projects.filter(p =>
@@ -273,54 +327,191 @@ export default function DeveloperDashboard() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    navigate("/signin");
+    logout();
+    navigate('/signin');
   };
+
+  const currentWallet = walletAddress || userProfile?.wallet_address;
+  const formatAddress = (addr) => addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : 'No Wallet Connected';
+  const avatarUrl = userProfile?.avatar_url || googleUser?.user_metadata?.avatar_url || googleUser?.user_metadata?.picture;
+  const userEmail = userProfile?.email || googleUser?.email;
 
   const handleEval = (data) => {
     setEvaluation(data?.evaluation_result || data);
     loadData(); // refresh list
   };
 
+  const handleClaim = async (project) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      // 1. Prepare Claim Txn
+      const txns = await createClaimTxn(userProfile?.wallet_address, project.app_id);
+      const signed = await signTransaction(txns);
+      if (!signed) return;
+
+      const client = getAlgodClient();
+      await client.sendRawTransaction(signed).do();
+      alert("Payment claimed successfully! The funds have been transferred to your wallet.");
+      loadData();
+    } catch (err) {
+      alert("Failed to claim payment: " + err.message);
+    }
+  };
+
   const statusColor = (s) => ({ OPEN: "#66d3ff", IN_PROGRESS: "#fbbf24", COMPLETED: "#4ade80" }[s] || "#666");
 
   return (
-    <div style={{ minHeight: "100vh", background: "#060912", color: "#fff" }}>
+    <div className="dash-layout">
       <Navbar />
 
-      <main className="container" style={{ padding: "8rem 1rem 4rem" }}>
-        {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "2rem", flexWrap: "wrap", gap: "1rem" }}>
-          <div>
-            <p style={{ color: "#4ade80", fontSize: "0.85rem", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>DEVELOPER DASHBOARD</p>
-            <h1 style={{ fontSize: "2.2rem", fontWeight: 900 }}>Bounty Hunter</h1>
+      <main className="container" style={{ padding: "8rem 1rem 4rem", position: "relative", zIndex: 1 }}>
+        
+        {/* User Account Header */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginBottom: '4rem' }}>
+          
+          <div className="dash-glass" style={{ padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+            <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(74, 222, 128, 0.1)', display: 'grid', placeItems: 'center', border: '1px solid rgba(74, 222, 128, 0.2)', overflow: 'hidden' }}>
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <User size={24} color="#4ade80" />
+              )}
+            </div>
+            <div style={{ flex: 1 }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fff', marginBottom: '0.1rem' }}>{userProfile?.display_name || googleUser?.user_metadata?.full_name || 'Protocol Dev'}</h3>
+              <p style={{ fontSize: '0.75rem', color: '#4ade80', fontWeight: 600, letterSpacing: '0.05em' }}>{formatAddress(currentWallet)}</p>
+            </div>
+            <Link to="/settings" className="dash-header-btn" style={{ padding: '0.6rem' }} title="Settings">
+              <SettingsIcon size={18} />
+            </Link>
           </div>
-          <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
-            <input type="password" placeholder="Gemini API Key" value={geminiApiKey}
-              onChange={e => setGeminiApiKey(e.target.value)}
-              style={{ padding: "0.55rem 1rem", borderRadius: 8, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", outline: "none", width: 220 }} />
-            <button onClick={handleLogout} style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)", borderRadius: 8, padding: "0.55rem 1rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-              <LogOut size={14} /> Sign Out
-            </button>
+
+          <WalletBalance address={userProfile?.wallet_address} />
+
+          <div className="dash-glass" style={{ padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+             <div style={{ flex: 1 }}>
+                <p style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.25rem' }}>Network Reputation</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Trophy size={14} color="#facc15" />
+                  <span style={{ fontSize: '0.9rem', color: '#fff', fontWeight: 600 }}>Elite Developer</span>
+                </div>
+             </div>
+             <button onClick={handleLogout} className="dash-header-btn" style={{ border: '1px solid rgba(248, 113, 113, 0.2)', color: '#f87171' }}>
+               <LogOut size={16} />
+             </button>
           </div>
         </div>
 
-        {/* Tabs */}
-        <div style={{ display: "flex", gap: "1rem", marginBottom: "2.5rem", borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "1rem" }}>
-          <button onClick={() => setActiveTab("bounties")} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1.05rem", fontWeight: 700, color: activeTab === "bounties" ? "#fff" : "rgba(255,255,255,0.4)" }}>
-            Bounties Market
-          </button>
-          <button onClick={() => setActiveTab("submissions")} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1.05rem", fontWeight: 700, color: activeTab === "submissions" ? "#fff" : "rgba(255,255,255,0.4)" }}>
-            My Submissions
-          </button>
+        {/* Portfolio Stats Section */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginBottom: '4rem' }}>
+          {[
+            { label: 'Audit Pass Rate', value: '94%', icon: <Code size={20} />, color: '#66d3ff' },
+            { label: 'Total Earned', value: '1,240 ALGO', icon: <DollarSign size={20} />, color: '#4ade80' },
+            { label: 'Completed Jobs', value: '18', icon: <Trophy size={20} />, color: '#facc15' },
+          ].map((stat, i) => (
+            <motion.div 
+              key={i}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: i * 0.1 }}
+              className="dash-glass" 
+              style={{ padding: '1.5rem' }}
+            >
+              <div style={{ color: stat.color, marginBottom: '0.75rem' }}>{stat.icon}</div>
+              <p style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.25rem' }}>{stat.label}</p>
+              <p style={{ fontSize: '1.5rem', fontWeight: 900, color: '#fff' }}>{stat.value}</p>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Title & Actions Section */}
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }} 
+          animate={{ opacity: 1, y: 0 }}
+          style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "3rem", flexWrap: "wrap", gap: "1.5rem" }}
+        >
+          <div>
+            <div className="dash-subtitle">
+              <Zap size={14} className="animate-pulse" /> DEVELOPER WORKSPACE
+            </div>
+            <h1 className="dash-title">Bounty Hunter</h1>
+          </div>
+          
+          <div style={{ display: "flex", gap: "1rem", alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ position: "relative" }}>
+              <Shield size={14} style={{ position: "absolute", left: "1rem", top: "50%", transform: "translateY(-50%)", color: "rgba(255,255,255,0.3)" }} />
+              <input 
+                type="password" 
+                placeholder="Gemini API Key" 
+                value={geminiApiKey}
+                onChange={e => setGeminiApiKey(e.target.value)}
+                style={{ 
+                  padding: "0.7rem 1rem 0.7rem 2.4rem", 
+                  borderRadius: "0.75rem", 
+                  background: "rgba(255,255,255,0.03)", 
+                  border: "1px solid rgba(102, 211, 255, 0.15)", 
+                  color: "#fff", 
+                  outline: "none", 
+                  width: 240,
+                  fontSize: "0.85rem",
+                  transition: "border-color 0.2s"
+                }} 
+              />
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Tabs Bar */}
+        <div style={{ display: "flex", gap: "2rem", marginBottom: "3rem", borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: "0.1rem" }}>
+          {["bounties", "submissions"].map((tab) => (
+            <button 
+              key={tab}
+              onClick={() => setActiveTab(tab)} 
+              style={{ 
+                background: "none", 
+                border: "none", 
+                cursor: "pointer", 
+                fontSize: "1rem", 
+                fontWeight: 700, 
+                padding: "0.75rem 0.5rem",
+                color: activeTab === tab ? "#66d3ff" : "rgba(255,255,255,0.35)",
+                position: "relative",
+                transition: "color 0.3s"
+              }}
+            >
+              {tab === "bounties" ? "Project Market" : "My Submissions"}
+              {activeTab === tab && (
+                <motion.div 
+                  layoutId="tab-underline"
+                  style={{ position: "absolute", bottom: -1, left: 0, right: 0, height: 2, background: "#66d3ff", boxShadow: "0 0 10px #66d3ff" }} 
+                />
+              )}
+            </button>
+          ))}
         </div>
 
         {activeTab === "bounties" && (
           <>
-            <div style={{ position: "relative", marginBottom: "2.5rem", maxWidth: 440 }}>
-              <Search style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", opacity: 0.35 }} size={16} />
-              <input className="signin-input" placeholder="Search projects…" value={search}
-                onChange={e => setSearch(e.target.value)} style={{ paddingLeft: "2.5rem", fontSize: "0.9rem" }} />
-            </div>
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              style={{ position: "relative", marginBottom: "3rem", maxWidth: 480 }}
+            >
+              <Search style={{ position: "absolute", left: "1.25rem", top: "50%", transform: "translateY(-50%)", color: "#66d3ff", opacity: 0.5 }} size={18} />
+              <input 
+                className="signin-input" 
+                placeholder="Search premium bounties..." 
+                value={search}
+                onChange={e => setSearch(e.target.value)} 
+                style={{ 
+                  padding: "0.85rem 1rem 0.85rem 3rem", 
+                  fontSize: "0.95rem",
+                  background: "rgba(255,255,255,0.02)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: "1rem"
+                }} 
+              />
+            </motion.div>
 
             {loading ? (
               <div style={{ textAlign: "center", padding: "4rem 0", color: "rgba(255,255,255,0.3)" }}>
@@ -333,43 +524,67 @@ export default function DeveloperDashboard() {
                 <p style={{ fontSize: "0.9rem" }}>Check back later.</p>
               </div>
             ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "1.5rem" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))", gap: "2rem" }}>
                 {filteredProjects.map((p, i) => (
-                  <motion.div key={p.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
-                    className="glass-card" style={{ padding: "1.5rem", display: "flex", flexDirection: "column", border: p.status === 'IN_PROGRESS' ? '1px solid rgba(251, 191, 36, 0.3)' : undefined }}>
-                    
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-                      <span style={{ fontSize: "0.72rem", padding: "0.22rem 0.65rem", borderRadius: 4, background: `${statusColor(p.status)}20`, color: statusColor(p.status), fontWeight: 700 }}>{p.status}</span>
-                      <span style={{ fontWeight: 800, color: "#4ade80", fontSize: "1rem" }}>${p.fiat_bounty_amount || p.payment_algo} USD</span>
+                  <motion.div 
+                    key={p.id} 
+                    initial={{ opacity: 0, y: 20 }} 
+                    animate={{ opacity: 1, y: 0 }} 
+                    transition={{ delay: i * 0.08 }}
+                    whileHover={{ y: -5 }}
+                    className={`dash-glass dash-card-hover ${p.status === 'IN_PROGRESS' ? 'active-project-border' : ''}`}
+                    style={{ padding: "2rem", display: "flex", flexDirection: "column", minHeight: "320px" }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+                      <span className="dash-badge" style={{ color: statusColor(p.status), background: `${statusColor(p.status)}12` }}>
+                        {p.status}
+                      </span>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.3)", fontWeight: 600 }}>REWARD</div>
+                        <div style={{ fontWeight: 800, color: "#4ade80", fontSize: "1.1rem", textShadow: "0 0 15px rgba(74,222,128,0.2)" }}>
+                          ${p.fiat_bounty_amount || p.payment_algo} USD
+                        </div>
+                      </div>
                     </div>
 
-                    <h3 style={{ marginBottom: "0.4rem", fontSize: "1.05rem" }}>{p.title}</h3>
-                    <p style={{ fontSize: "0.83rem", color: "rgba(255,255,255,0.45)", marginBottom: "1.25rem", flex: 1, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{p.description}</p>
+                    <h3 style={{ marginBottom: "0.75rem", fontSize: "1.2rem", fontWeight: 700 }}>{p.title}</h3>
+                    <p style={{ fontSize: "0.9rem", color: "rgba(255,255,255,0.5)", marginBottom: "1.75rem", flex: 1, lineHeight: "1.6" }}>
+                      {p.description}
+                    </p>
 
-                    <div style={{ marginBottom: "1.25rem" }}>
-                      {(p.requirements || []).slice(0, 3).map((req, j) => (
-                        <div key={j} style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.8rem", color: "rgba(255,255,255,0.5)", marginBottom: "0.3rem" }}>
-                          <Shield size={11} color="#66d3ff" />
-                          <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "90%" }}>{req}</span>
+                    <div style={{ marginBottom: "1.75rem", display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+                      {(p.requirements || []).slice(0, 2).map((req, j) => (
+                        <div key={j} style={{ display: "flex", alignItems: "center", gap: "0.6rem", fontSize: "0.82rem", color: "rgba(255,255,255,0.4)" }}>
+                          <div style={{ width: 14, height: 14, borderRadius: "50%", background: "rgba(102, 211, 255, 0.1)", display: "grid", placeItems: "center" }}>
+                            <Shield size={10} color="#66d3ff" />
+                          </div>
+                          <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{req}</span>
                         </div>
                       ))}
-                    </div>
-
-                    <div style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.25)", marginBottom: "1.25rem" }}>
-                      Score threshold: {p.score_threshold || 80}%
+                      {(p.requirements || []).length > 2 && (
+                        <div style={{ fontSize: "0.75rem", color: "#66d3ff", opacity: 0.6, paddingLeft: "1.5rem" }}>
+                          +{(p.requirements || []).length - 2} more requirements
+                        </div>
+                      )}
                     </div>
 
                     {p.status === 'OPEN' ? (
-                      <button className="btn-secondary" style={{ width: "100%", fontSize: "0.85rem" }} onClick={() => setBidProject(p)}>
-                        Submit Bid
+                      <button className="btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={() => setBidProject(p)}>
+                        Place Proposal
+                      </button>
+                    ) : p.status === 'COMPLETED' ? (
+                      <button className="btn-primary" style={{ width: "100%", justifyContent: "center", background: 'linear-gradient(135deg, #4ade80, #22c55e)' }} onClick={() => handleClaim(p)}>
+                         Claim Payment
                       </button>
                     ) : (
-                      <div style={{ display: "flex", gap: "0.5rem" }}>
+                      <div style={{ display: "flex", gap: "0.75rem" }}>
                         <button className="btn-primary" style={{ flex: 1, fontSize: "0.85rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }} onClick={() => setSubmitProject(p)}>
-                          <Github size={14} /> Submit Code (Escrow Locked)
+                          <Github size={14} /> Submit
                         </button>
-                        <button className="btn-secondary" style={{ padding: "0 1rem", display: "grid", placeItems: "center" }}
-                          onClick={() => setChatProject(p)}>
+                        <button className="dash-header-btn" style={{ padding: "0 0.9rem" }} onClick={() => setWorkspaceProject(p)}>
+                          <Users size={16} />
+                        </button>
+                        <button className="dash-header-btn" style={{ padding: "0 0.9rem" }} onClick={() => setChatProject(p)}>
                           <MessageSquare size={16} />
                         </button>
                       </div>
@@ -434,6 +649,7 @@ export default function DeveloperDashboard() {
         )}
         {evaluation && <EvalOverlay evaluation={evaluation} onClose={() => setEvaluation(null)} />}
         {chatProject && <ChatBox project={chatProject} onClose={() => setChatProject(null)} />}
+        {workspaceProject && <WorkspaceModal project={workspaceProject} onClose={() => setWorkspaceProject(null)} />}
       </AnimatePresence>
       <style>{`
         @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }

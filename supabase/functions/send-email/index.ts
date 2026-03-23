@@ -69,6 +69,26 @@ serve(async (req: Request) => {
                 <p>The funds locked in Escrow have been marked for release to the developer.</p>`;
         break;
         
+      case "team_invite":
+        const devInviteMail = payload.developerEmail || await getEmail(payload.developerId);
+        if (!devInviteMail) throw new Error("developer missing for invite");
+        toArray = [devInviteMail];
+        subject = "You've been invited to a KYTE Project Team!";
+        html = `<h2>Team Invitation</h2>
+                <p>You have been invited to join the project <b>${payload.projectTitle}</b> by the Lead Developer.</p>
+                <p>Log in to your Developer Dashboard to review the project.</p>`;
+        break;
+        
+      case "team_approved":
+        const devApprovedMail = payload.developerEmail || await getEmail(payload.developerId);
+        if (!devApprovedMail) throw new Error("developer missing");
+        toArray = [devApprovedMail];
+        subject = "Your KYTE Team Membership was Approved!";
+        html = `<h2>Membership Approved 🎉</h2>
+                <p>The client has officially approved your integration into the team for <b>${payload.projectTitle}</b>.</p>
+                <p>You may now access the project repo and collaborate with your team!</p>`;
+        break;
+
       default:
         return new Response(JSON.stringify({ error: "Invalid email action" }), { status: 400 });
     }

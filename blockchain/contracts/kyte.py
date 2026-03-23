@@ -16,7 +16,7 @@ def approval_program():
     STATUS_COMPLETED = Int(2)
     STATUS_DISPUTED = Int(3)
 
-    # Backend wallet address (Valid TestNet address)
+    # Backend wallet address (System AI Oracle)
     BACKEND_WALLET = Addr("NZMJZDYEZXZSNJVGE37F52VUHRISJJEFB6QLLCF7EKJM4YB3ACZQI7G2FU")
 
     @Subroutine(TealType.none)
@@ -43,6 +43,7 @@ def approval_program():
         Assert(Txn.sender() == BACKEND_WALLET),
         Assert(App.globalGet(status_key) == STATUS_REVIEW),
         App.globalPut(score_key, Btoi(Txn.application_args[1])),
+        # If score >= 80, set to COMPLETED. If < 80, reset to OPEN for another attempt.
         If(Btoi(Txn.application_args[1]) >= Int(80),
            update_status(STATUS_COMPLETED),
            update_status(STATUS_OPEN)
@@ -51,12 +52,31 @@ def approval_program():
     ])
 
     on_release = Seq([
+        Assert(Txn.sender() == App.globalGet(dev_key)),
         Assert(App.globalGet(status_key) == STATUS_COMPLETED),
         InnerTxnBuilder.Begin(),
         InnerTxnBuilder.SetFields({
             TxnField.type_enum: TxnType.Payment,
             TxnField.receiver: App.globalGet(dev_key),
-            TxnField.amount: App.globalGet(amount_key),
+            TxnField.amount: App.globalGet(amount_key) - Int(1000), # Account for fee
+            TxnField.fee: Int(1000)
+        }),
+        InnerTxnBuilder.Submit(),
+        update_status(STATUS_OPEN), # Reset if needed, or just let it be
+        Return(Int(1))
+    ])
+
+    on_reclaim = Seq([
+        Assert(Txn.sender() == App.globalGet(client_key)),
+        Assert(Or(
+            App.globalGet(status_key) == STATUS_OPEN,
+            App.globalGet(status_key) == STATUS_DISPUTED
+        )),
+        InnerTxnBuilder.Begin(),
+        InnerTxnBuilder.SetFields({
+            TxnField.type_enum: TxnType.Payment,
+            TxnField.receiver: App.globalGet(client_key),
+            TxnField.amount: App.globalGet(amount_key) - Int(1000),
             TxnField.fee: Int(1000)
         }),
         InnerTxnBuilder.Submit(),
@@ -68,7 +88,8 @@ def approval_program():
         [Txn.on_completion() == OnComplete.NoOp, Cond(
             [Txn.application_args[0] == Bytes("submit"), on_submit],
             [Txn.application_args[0] == Bytes("score"), on_score],
-            [Txn.application_args[0] == Bytes("release"), on_release]
+            [Txn.application_args[0] == Bytes("release"), on_release],
+            [Txn.application_args[0] == Bytes("reclaim"), on_reclaim]
         )],
         [Txn.on_completion() == OnComplete.DeleteApplication, Return(Txn.sender() == App.globalGet(client_key))],
         [Txn.on_completion() == OnComplete.UpdateApplication, Return(Txn.sender() == App.globalGet(client_key))]

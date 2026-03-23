@@ -25,18 +25,34 @@ export default function ProtectedRoute({ children, role }) {
       }
 
       // Fetch profile from DB
-      const { data: profile } = await supabase
+      let { data: profile } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('id', session.user.id)
         .maybeSingle();
 
-      if (!profile) {
+      if (profile) {
+        // Auto-sync Google metadata if missing or changed
+        const meta = session.user.user_metadata;
+        const updates = {};
+        if (!profile.email && session.user.email) updates.email = session.user.email;
+        if (!profile.avatar_url && (meta?.avatar_url || meta?.picture)) updates.avatar_url = meta.avatar_url || meta.picture;
+        if (!profile.display_name && (meta?.full_name || meta?.name)) updates.display_name = meta.full_name || meta.name;
+
+        if (Object.keys(updates).length > 0) {
+          const { data: updated } = await supabase
+            .from('user_profiles')
+            .update(updates)
+            .eq('id', session.user.id)
+            .select()
+            .single();
+          if (updated) profile = updated;
+        }
+        setUserProfile(profile);
+      } else {
         if (mounted) setStatus('no-role');
         return;
       }
-
-      setUserProfile(profile);
 
       if (role && profile.role !== role) {
         if (mounted) setStatus('wrong-role');

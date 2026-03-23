@@ -45,25 +45,92 @@ export async function issueKyteToken(address) {
   return result.token;
 }
 
+import algosdk from "algosdk";
+import { signTransaction, getAlgodClient, createSubmitTxn } from "./wallet";
 import { supabase } from '../supabaseClient';
 
-export async function createProject(token, data) {
-  // Edge Function expects: action: 'create', geminiApiKey: data.geminiApiKey, data: {title, ...}
-  const { data: result, error } = await supabase.functions.invoke('gemini-audit', {
+export async function createProject(token, data, address) {
+  // 1. Get compiled TEAL from backend
+  const { approval_b64, clear_b64, suggested_params } = await request("/contract/compile");
+  
+  const client = getAlgodClient();
+  const encoder = new TextEncoder();
+  
+  // 2. Prepare ApplicationCreateTxn
+  // appArgs: [amount (as uint64 bytes)]
+  const amount = BigInt(Math.floor(data.payment_algo * 1_000_000)); // ALGO to microALGO
+  const appArgs = [algosdk.encodeUint64(amount)];
+
+  const onComplete = algosdk.OnComplete.NoOpOC;
+  
+  const txn = algosdk.makeApplicationCreateTxnFromObject({
+      from: address,
+      suggestedParams: suggested_params,
+      onComplete: onComplete,
+      approvalProgram: new Uint8Array(Buffer.from(approval_b64, "base64")),
+      clearProgram: new Uint8Array(Buffer.from(clear_b64, "base64")),
+      numLocalInts: 0,
+      numLocalByteSlices: 0,
+      numGlobalInts: 4,
+      numGlobalByteSlices: 4,
+      appArgs: appArgs,
+  });
+
+  // 3. Prepare funding transaction (send ALGO to the app address)
+  // Note: We need the appId first to get the app address.
+  // In Algorand, we can use a grouped transaction if we know the logic, 
+  // but for simplicity, let's create the app then fund it.
+  
+  const signed = await signTransaction([{ txn, message: "Create KYTE Escrow Smart Contract" }]);
+  if (!signed) throw new Error("Transaction rejected by user");
+
+  const { txId } = await client.sendRawTransaction(signed).do();
+  const result = await algosdk.waitForConfirmation(client, txId, 4);
+  const appId = result['application-index'];
+
+  // 4. Fund the application
+  const appAddress = algosdk.getApplicationAddress(appId);
+  const fundTxn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+    from: address,
+    to: appAddress,
+    amount: amount,
+    suggestedParams: suggested_params
+  });
+
+  const signedFund = await signTransaction([{ txn: fundTxn, message: `Deposit ${data.payment_algo} ALGO into Escrow` }]);
+  if (!signedFund) throw new Error("Funding transaction rejected");
+  await client.sendRawTransaction(signedFund).do();
+
+  // 5. Create project record in Supabase with appId
+  const projectData = {
+    ...data,
+    app_id: appId,
+    wallet_address: address,
+    status: 'OPEN'
+  };
+
+  const { data: project, error } = await supabase.functions.invoke('gemini-audit', {
     body: {
       action: 'create',
       geminiApiKey: data.geminiApiKey,
-      data: data
+      data: projectData
     }
   });
   
-  if (error) throw new Error(error.message || "Failed to create project");
-  if (result && result.error) throw new Error(result.error);
-  return result;
+  if (error) throw new Error(error.message || "Failed to sync project to database");
+  return project;
 }
 
-export async function submitProject(token, data) {
-  // Edge Function expects: action: 'submit', geminiApiKey: data.geminiApiKey, data: {projectId, githubUrl}
+export async function submitProject(token, data, address) {
+  // 1. Sign on-chain submission
+  const txns = await createSubmitTxn(address, data.appId, data.githubUrl);
+  const signed = await signTransaction(txns);
+  if (!signed) throw new Error("Submission transaction rejected");
+
+  const client = getAlgodClient();
+  await client.sendRawTransaction(signed).do();
+
+  // 2. Trigger AI Audit
   const { data: result, error } = await supabase.functions.invoke('gemini-audit', {
     body: {
       action: 'submit',
@@ -72,7 +139,7 @@ export async function submitProject(token, data) {
     }
   });
 
-  if (error) throw new Error(error.message || "Failed to submit project");
+  if (error) throw new Error(error.message || "Failed to submit project for audit");
   if (result && result.error) throw new Error(result.error);
   return result;
 }

@@ -126,6 +126,7 @@ serve(async (req) => {
           score_threshold: data.score_threshold,
           wallet_address: data.wallet_address,
           owner_id: data.owner_id ?? null,
+          app_id: data.app_id ?? null,
           status: 'OPEN',
           submission_count: 0,
           best_score: 0,

@@ -2,7 +2,7 @@
 txn ApplicationID
 int 0
 ==
-bnz main_l17
+bnz main_l19
 txn OnCompletion
 int NoOp
 ==
@@ -32,17 +32,58 @@ main_l7:
 txna ApplicationArgs 0
 byte "submit"
 ==
-bnz main_l16
+bnz main_l18
 txna ApplicationArgs 0
 byte "score"
 ==
-bnz main_l12
+bnz main_l14
 txna ApplicationArgs 0
 byte "release"
 ==
-bnz main_l11
+bnz main_l13
+txna ApplicationArgs 0
+byte "reclaim"
+==
+bnz main_l12
 err
-main_l11:
+main_l12:
+txn Sender
+byte "client"
+app_global_get
+==
+assert
+byte "status"
+app_global_get
+int 0
+==
+byte "status"
+app_global_get
+int 3
+==
+||
+assert
+itxn_begin
+int pay
+itxn_field TypeEnum
+byte "client"
+app_global_get
+itxn_field Receiver
+byte "amount"
+app_global_get
+int 1000
+-
+itxn_field Amount
+int 1000
+itxn_field Fee
+itxn_submit
+int 1
+return
+main_l13:
+txn Sender
+byte "dev"
+app_global_get
+==
+assert
 byte "status"
 app_global_get
 int 2
@@ -56,13 +97,17 @@ app_global_get
 itxn_field Receiver
 byte "amount"
 app_global_get
+int 1000
+-
 itxn_field Amount
 int 1000
 itxn_field Fee
 itxn_submit
+int 0
+callsub updatestatus_0
 int 1
 return
-main_l12:
+main_l14:
 txn Sender
 addr NZMJZDYEZXZSNJVGE37F52VUHRISJJEFB6QLLCF7EKJM4YB3ACZQI7G2FU
 ==
@@ -80,17 +125,17 @@ txna ApplicationArgs 1
 btoi
 int 80
 >=
-bnz main_l15
+bnz main_l17
 int 0
 callsub updatestatus_0
-main_l14:
+main_l16:
 int 1
 return
-main_l15:
+main_l17:
 int 2
 callsub updatestatus_0
-b main_l14
-main_l16:
+b main_l16
+main_l18:
 byte "status"
 app_global_get
 int 0
@@ -106,7 +151,7 @@ int 1
 callsub updatestatus_0
 int 1
 return
-main_l17:
+main_l19:
 byte "client"
 txn Sender
 app_global_put

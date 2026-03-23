@@ -51,3 +51,56 @@ export const signAuthNonce = async (address, nonce) => {
         return null;
     }
 };
+export const signTransaction = async (transactions) => {
+    try {
+        // transactions is an array of {txn, message?}
+        const signedTxns = await peraWallet.signTransaction(transactions);
+        return signedTxns;
+    } catch (e) {
+        console.log("Signing error", e);
+        return null;
+    }
+};
+
+export const getAlgodClient = () => {
+    return new algosdk.Algodv2("", "https://testnet-api.algonode.cloud", "");
+};
+
+export const createSubmitTxn = async (address, appId, githubUrl) => {
+    const client = getAlgodClient();
+    const params = await client.getTransactionParams().do();
+    const encoder = new TextEncoder();
+    
+    // appArgs: ["submit", githubUrl]
+    const appArgs = [
+        encoder.encode("submit"),
+        encoder.encode(githubUrl)
+    ];
+
+    const txn = algosdk.makeApplicationNoOpTxn(
+        address,
+        params,
+        appId,
+        appArgs
+    );
+
+    return [{ txn, message: "Submit work to KYTE Smart Contract" }];
+};
+
+export const createClaimTxn = async (address, appId) => {
+    const client = getAlgodClient();
+    const params = await client.getTransactionParams().do();
+    const encoder = new TextEncoder();
+    
+    // appArgs: ["release"]
+    const appArgs = [encoder.encode("release")];
+
+    const txn = algosdk.makeApplicationNoOpTxn(
+        address,
+        params,
+        appId,
+        appArgs
+    );
+
+    return [{ txn, message: "Claim payment from KYTE" }];
+};

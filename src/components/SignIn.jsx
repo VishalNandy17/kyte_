@@ -130,19 +130,21 @@ export default function SignIn() {
           {/* Brand */}
           <div className="signin-brand">
             <div className="signin-brand-mark">
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <path d="M10 2L18 7V13L10 18L2 13V7L10 2Z" fill="url(#hexGrad)" />
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2L20 7V17L12 22L4 17V7L12 2Z" stroke="url(#hexGrad)" strokeWidth="2" strokeLinejoin="round" />
+                <path d="M12 6V18" stroke="url(#hexGrad)" strokeWidth="2" strokeLinecap="round" />
+                <path d="M8 10L12 14L16 10" stroke="url(#hexGrad)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 <defs>
-                  <linearGradient id="hexGrad" x1="2" y1="2" x2="18" y2="18">
+                  <linearGradient id="hexGrad" x1="4" y1="4" x2="20" y2="20">
                     <stop stopColor="#66d3ff" />
                     <stop offset="1" stopColor="#759aff" />
                   </linearGradient>
                 </defs>
               </svg>
             </div>
-            <span className="signin-brand-name">
-              <span>Optivus</span>
-              <span className="signin-brand-accent"> Kyte</span>
+            <span className="signin-brand-name" style={{ letterSpacing: '0.1em', fontWeight: 900, textTransform: 'uppercase' }}>
+              <span>KYTE</span>
+              <span className="signin-brand-accent" style={{ opacity: 0.5, marginLeft: '0.5rem', fontWeight: 400 }}>PROTOCOL</span>
             </span>
           </div>
 
@@ -153,14 +155,13 @@ export default function SignIn() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2, duration: 0.8 }}
             >
-              <p className="signin-eyebrow">Trusted by professionals</p>
-              <h1 className="signin-hero-title">
-                Build Your Product
-                <br />
-                <span className="signin-gradient-text">perfectly secured.</span>
+              <p className="signin-eyebrow" style={{ color: '#66d3ff', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', fontSize: '0.75rem' }}>Decentralized Talent Protocol</p>
+              <h1 className="signin-hero-title" style={{ fontSize: '3.5rem', lineHeight: 1.1, fontWeight: 900, marginBottom: '1.5rem' }}>
+                Engineering <br />
+                <span className="signin-gradient-text">the future of work.</span>
               </h1>
-              <p className="signin-hero-sub">
-                AI-powered proctoring, real-time analytics, and seamless candidate management — all in one platform.
+              <p className="signin-hero-sub" style={{ fontSize: '1.1rem', lineHeight: 1.6, color: 'rgba(255,255,255,0.5)', maxWidth: '480px' }}>
+                Secure, AI-audited freelance infrastructure. Transparent bidding, smart escrows, and real-time collaboration.
               </p>
             </motion.div>
 
@@ -172,13 +173,13 @@ export default function SignIn() {
               transition={{ delay: 0.4, duration: 0.7 }}
             >
               {[
-                { icon: '🛡️', label: 'AI Proctoring' },
-                { icon: '📊', label: 'Live Analytics' },
-                { icon: '🔐', label: 'Zero Trust Security' },
+                { icon: '🛡️', label: 'AI Code Audit' },
+                { icon: '📜', label: 'Smart Escrows' },
+                { icon: '⚡', label: 'Bounty Market' },
               ].map((f, i) => (
-                <div key={i} className="signin-feature-pill">
-                  <span>{f.icon}</span>
-                  <span>{f.label}</span>
+                <div key={i} className="signin-feature-pill" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', padding: '0.6rem 1.2rem', borderRadius: '1rem' }}>
+                  <span style={{ fontSize: '1.1rem' }}>{f.icon}</span>
+                  <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>{f.label}</span>
                 </div>
               ))}
             </motion.div>
@@ -191,13 +192,13 @@ export default function SignIn() {
               transition={{ delay: 0.6, duration: 0.8 }}
             >
               {[
-                { num: '50K+', lbl: 'Exams Conducted' },
-                { num: '99.9%', lbl: 'Uptime SLA' },
-                { num: '4.9★', lbl: 'User Rating' },
+                { num: '$2.4M', lbl: 'Total Valued Locked' },
+                { num: '850+', lbl: 'Verified Nodes' },
+                { num: '99.9%', lbl: 'Audit Accuracy' },
               ].map((s, i) => (
-                <div key={i} className="signin-stat-chip">
-                  <span className="signin-stat-num">{s.num}</span>
-                  <span className="signin-stat-lbl">{s.lbl}</span>
+                <div key={i} className="signin-stat-chip" style={{ borderLeft: '2px solid rgba(102, 211, 255, 0.2)', paddingLeft: '1.5rem' }}>
+                  <span className="signin-stat-num" style={{ fontSize: '1.5rem', fontWeight: 800, color: '#fff' }}>{s.num}</span>
+                  <span className="signin-stat-lbl" style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{s.lbl}</span>
                 </div>
               ))}
             </motion.div>
@@ -205,41 +206,34 @@ export default function SignIn() {
         </motion.div>
 
         {/* ── Right Panel (Card) ── */}
-        <div className="signin-right">
+        <div className="signin-right" style={{ display: 'grid', placeItems: 'center' }}>
           <motion.div
-            className="signin-card"
+            className="dash-glass"
             initial={{ opacity: 0, y: 30, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 0.8, ease: 'easeOut', delay: 0.1 }}
+            style={{ padding: '3rem', maxWidth: '440px', width: '100%', borderRadius: '2rem', boxShadow: '0 40px 100px rgba(0,0,0,0.8)' }}
           >
             {/* Back button */}
             <button
               className="signin-back-btn"
               onClick={() => router('/')}
               aria-label="Back to home"
+              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '0.75rem', padding: '0.5rem 1rem' }}
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M10 3L5 8L10 13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M10 3L5 8L10 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              <span>Back</span>
+              <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>Exit</span>
             </button>
 
             {/* Card Header */}
-            <div className="signin-card-header">
-              <div className="signin-card-icon">
-                <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-                  <path d="M11 2.75C6.44 2.75 2.75 6.44 2.75 11C2.75 15.56 6.44 19.25 11 19.25C15.56 19.25 19.25 15.56 19.25 11C19.25 6.44 15.56 2.75 11 2.75Z" stroke="url(#iconGrad)" strokeWidth="1.5" />
-                  <path d="M11 7.5V11.5L13.5 14" stroke="url(#iconGrad)" strokeWidth="1.5" strokeLinecap="round" />
-                  <defs>
-                    <linearGradient id="iconGrad" x1="2.75" y1="2.75" x2="19.25" y2="19.25">
-                      <stop stopColor="#66d3ff" />
-                      <stop offset="1" stopColor="#759aff" />
-                    </linearGradient>
-                  </defs>
-                </svg>
+            <div className="signin-card-header" style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
+              <div className="signin-card-icon" style={{ width: 64, height: 64, background: 'rgba(102, 211, 255, 0.05)', borderRadius: '1.25rem', border: '1px solid rgba(102, 211, 255, 0.1)', display: 'grid', placeItems: 'center', margin: '0 auto 1.5rem' }}>
+                <Shield size={32} color="#66d3ff" />
               </div>
-              <h2 className="signin-card-title">Welcome back</h2>
-              <p className="signin-card-subtitle">Sign in to your Optivus Kyte account</p>
+              <h2 className="signin-card-title" style={{ fontSize: '1.75rem', fontWeight: 800, color: '#fff', marginBottom: '0.5rem' }}>Initialize Session</h2>
+              <p className="signin-card-subtitle" style={{ fontSize: '0.95rem', color: 'rgba(255,255,255,0.4)' }}>Access the KYTE Network Gate</p>
             </div>
 
             {/* Divider */}

@@ -16,6 +16,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import ClientDashboard from './components/ClientDashboard'
 import DeveloperDashboard from './components/DeveloperDashboard'
 import AIAgent from './components/AIAgent'
+import Settings from './components/Settings'
 
 function LandingPage() {
   return (
@@ -54,6 +55,12 @@ function App() {
         <Route path="/dashboard/developer" element={
           <ProtectedRoute role="developer">
             <DeveloperDashboard />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/settings" element={
+          <ProtectedRoute>
+            <Settings />
           </ProtectedRoute>
         } />
 

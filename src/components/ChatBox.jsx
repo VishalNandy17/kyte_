@@ -81,102 +81,105 @@ export default function ChatBox({ project, onClose }) {
 
   return (
     <motion.div 
-      initial={{ opacity: 0, y: 50, scale: 0.95 }} 
+      initial={{ opacity: 0, y: 100, scale: 0.95 }} 
       animate={{ opacity: 1, y: 0, scale: 1 }} 
-      exit={{ opacity: 0, y: 50, scale: 0.95 }}
+      exit={{ opacity: 0, y: 100, scale: 0.95 }}
+      className="dash-glass"
       style={{
         position: 'fixed',
-        bottom: '2rem',
-        right: '2rem',
-        width: 360,
-        height: 500,
-        background: 'rgba(10, 15, 30, 0.95)',
-        backdropFilter: 'blur(20px)',
-        border: '1px solid rgba(102, 211, 255, 0.2)',
-        borderRadius: '16px',
-        boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+        bottom: '2.5rem',
+        right: '2.5rem',
+        width: 400,
+        height: 580,
+        boxShadow: '0 30px 60px rgba(0,0,0,0.6)',
         display: 'flex',
         flexDirection: 'column',
-        zIndex: 500,
+        zIndex: 1000,
         overflow: 'hidden'
       }}
     >
       {/* Header */}
-      <div style={{ padding: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(102, 211, 255, 0.1)', display: 'grid', placeItems: 'center' }}>
-            <MessageSquare size={16} color="#66d3ff" />
+      <div style={{ padding: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(102, 211, 255, 0.1)', display: 'grid', placeItems: 'center', border: '1px solid rgba(102, 211, 255, 0.2)' }}>
+            <MessageSquare size={20} color="#66d3ff" />
           </div>
           <div>
-            <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#fff' }}>Project Chat</h4>
-            <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', display: 'block', maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <h4 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#fff', letterSpacing: '0.02em' }}>Protocol Channel</h4>
+            <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', display: 'block', maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 600 }}>
               {project.title}
             </span>
           </div>
         </div>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer' }}>
+        <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: 'rgba(255,255,255,0.4)', borderRadius: '50%', width: 32, height: 32, display: 'grid', placeItems: 'center', cursor: 'pointer', transition: 'all 0.2s' }}>
           <X size={18} />
         </button>
       </div>
 
       {/* Messages Area */}
-      <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+      <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
         {loading ? (
           <div style={{ display: 'grid', placeItems: 'center', height: '100%', color: 'rgba(255,255,255,0.3)' }}>
-            <Loader2 size={24} className="spin" style={{ animation: 'spin 1s linear infinite' }} />
+            <Loader2 size={32} className="spin" style={{ animation: 'spin 1s linear infinite' }} />
           </div>
         ) : messages.length === 0 ? (
-          <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.3)', fontSize: '0.85rem', marginTop: 'auto', marginBottom: 'auto' }}>
-            No messages yet. Say hello!
+          <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.2)', fontSize: '0.9rem', marginTop: 'auto', marginBottom: 'auto', padding: '0 2rem' }}>
+            <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(255,255,255,0.02)', display: 'grid', placeItems: 'center', margin: '0 auto 1.5rem', opacity: 0.5 }}>
+               <MessageSquare size={28} />
+            </div>
+            Initialing secure channel. No packets recorded yet.
           </div>
         ) : (
           messages.map((m, i) => {
             const isMe = currentUser?.id === m.sender_id;
             return (
-              <div key={m.id || i} style={{ alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth: '80%' }}>
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={m.id || i} style={{ alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth: '85%' }}>
                 <div style={{ 
-                  background: isMe ? '#66d3ff' : 'rgba(255,255,255,0.1)', 
-                  color: isMe ? '#000' : '#fff', 
-                  padding: '0.6rem 1rem', 
-                  borderRadius: isMe ? '16px 16px 2px 16px' : '16px 16px 16px 2px',
-                  fontSize: '0.9rem',
-                  lineHeight: 1.4,
-                  wordBreak: 'break-word'
+                  background: isMe ? 'var(--gradient-hero)' : 'rgba(255,255,255,0.03)', 
+                  color: isMe ? '#fff' : '#e2e4f6', 
+                  padding: '0.85rem 1.25rem', 
+                  borderRadius: isMe ? '1.25rem 1.25rem 0.25rem 1.25rem' : '1.25rem 1.25rem 1.25rem 0.25rem',
+                  fontSize: '0.92rem',
+                  lineHeight: 1.5,
+                  wordBreak: 'break-word',
+                  border: isMe ? 'none' : '1px solid rgba(255,255,255,0.05)',
+                  boxShadow: isMe ? '0 8px 20px rgba(0,201,255,0.15)' : 'none'
                 }}>
                   {m.content}
                 </div>
-                <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.3)', textAlign: isMe ? 'right' : 'left', marginTop: '0.2rem', padding: '0 0.5rem' }}>
+                <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.25)', textAlign: isMe ? 'right' : 'left', marginTop: '0.4rem', padding: '0 0.5rem', fontWeight: 600, letterSpacing: '0.05em' }}>
                   {formatTime(m.created_at)}
                 </div>
-              </div>
+              </motion.div>
             );
           })
         )}
       </div>
 
       {/* Input Area */}
-      <form onSubmit={handleSend} style={{ padding: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)' }}>
+      <form onSubmit={handleSend} style={{ padding: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)', background: 'rgba(0,0,0,0.2)' }}>
         <div style={{ position: 'relative' }}>
           <input 
             value={newMessage} 
             onChange={e => setNewMessage(e.target.value)}
-            placeholder="Type a message..."
+            placeholder="Secure transmission..."
+            className="signin-input"
             style={{ 
-              width: '100%', padding: '0.75rem 3rem 0.75rem 1rem', 
-              borderRadius: '24px', border: '1px solid rgba(255,255,255,0.1)', 
-              background: 'rgba(255,255,255,0.05)', color: '#fff', outline: 'none',
-              fontSize: '0.9rem'
+              width: '100%', padding: '1rem 4rem 1rem 1.25rem', 
+              borderRadius: '1.25rem', border: '1px solid rgba(255,255,255,0.05)', 
+              background: 'rgba(255,255,255,0.03)', color: '#fff', outline: 'none',
+              fontSize: '0.95rem'
             }} 
           />
           <button type="submit" disabled={!newMessage.trim()} style={{ 
-            position: 'absolute', right: '0.3rem', top: '50%', transform: 'translateY(-50%)',
-            background: newMessage.trim() ? '#66d3ff' : 'transparent',
-            color: newMessage.trim() ? '#000' : 'rgba(255,255,255,0.3)',
-            border: 'none', borderRadius: '50%', width: 34, height: 34, 
+            position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)',
+            background: newMessage.trim() ? 'var(--gradient-hero)' : 'rgba(255,255,255,0.05)',
+            color: newMessage.trim() ? '#fff' : 'rgba(255,255,255,0.2)',
+            border: 'none', borderRadius: '1rem', width: 44, height: 44, 
             display: 'grid', placeItems: 'center', cursor: newMessage.trim() ? 'pointer' : 'default',
-            transition: 'all 0.2s'
+            transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
           }}>
-            <Send size={14} style={{ marginLeft: 2 }} />
+            <Send size={18} style={{ marginLeft: 2 }} />
           </button>
         </div>
       </form>

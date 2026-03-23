@@ -30,9 +30,16 @@ const roles = [
 
 export default function RoleSelect() {
   const navigate = useNavigate();
-  const { setUserProfile } = useStore();
+  const { userProfile, setUserProfile } = useStore();
   const [loading, setLoading] = useState(null); // id of role being saved
   const [error, setError] = useState('');
+
+  React.useEffect(() => {
+    if (userProfile?.role) {
+      const dest = userProfile.role === 'client' ? '/dashboard/client' : '/dashboard/developer';
+      navigate(dest, { replace: true });
+    }
+  }, [userProfile, navigate]);
 
   const handleSelect = async (roleObj) => {
     setError('');
@@ -82,65 +89,65 @@ export default function RoleSelect() {
       >
         {/* Header */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 1rem', background: 'rgba(102,211,255,0.08)', border: '1px solid rgba(102,211,255,0.2)', borderRadius: 999, marginBottom: '2rem' }}>
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#66d3ff', boxShadow: '0 0 6px #66d3ff' }} />
-            <span style={{ fontSize: '0.8rem', color: '#66d3ff', letterSpacing: '0.08em' }}>Welcome to Optivus Kyte</span>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.6rem', padding: '0.6rem 1.25rem', background: 'rgba(102,211,255,0.05)', border: '1px solid rgba(102,211,255,0.15)', borderRadius: 999, marginBottom: '2rem' }}>
+            <div className="animate-pulse" style={{ width: 8, height: 8, borderRadius: '50%', background: '#66d3ff', boxShadow: '0 0 12px #66d3ff' }} />
+            <span style={{ fontSize: '0.75rem', color: '#66d3ff', letterSpacing: '0.15em', fontWeight: 800, textTransform: 'uppercase' }}>Protocol Entry Path</span>
           </div>
-          <h1 style={{ fontSize: '2.5rem', fontWeight: 900, color: '#fff', marginBottom: '1rem', lineHeight: 1.2 }}>
-            How will you use<br />
-            <span style={{ background: 'linear-gradient(90deg,#66d3ff,#759aff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Kyte?</span>
+          <h1 style={{ fontSize: '3.5rem', fontWeight: 900, color: '#fff', marginBottom: '1.5rem', lineHeight: 1.1, letterSpacing: '-0.02em' }}>
+            Define Your <br />
+            <span className="signin-gradient-text" style={{ filter: 'drop-shadow(0 0 20px rgba(102, 211, 255, 0.3))' }}>Presence.</span>
           </h1>
-          <p style={{ color: 'rgba(255,255,255,0.5)', marginBottom: '3rem', fontSize: '1.05rem' }}>
-            Choose your role to access the right dashboard. You can update this later.
+          <p style={{ color: 'rgba(255,255,255,0.4)', marginBottom: '4rem', fontSize: '1.1rem', maxWidth: '540px', margin: '0 auto 4rem', lineHeight: 1.6 }}>
+            Select your primary objective on the KYTE network. This configuration calibrates your automated dashboard.
           </p>
         </motion.div>
 
         {/* Role Cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem', marginBottom: '3rem' }}>
           {roles.map((role, i) => {
             const Icon = role.icon;
             const isLoading = loading === role.id;
             return (
               <motion.button
                 key={role.id}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 + i * 0.1 }}
-                whileHover={{ y: -4, scale: 1.02 }}
+                whileHover={{ y: -8, scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => handleSelect(role)}
                 disabled={!!loading}
+                className="dash-glass"
                 style={{
-                  background: role.gradient,
-                  border: `1px solid ${role.border}44`,
-                  borderRadius: 20,
-                  padding: '2.5rem 2rem',
+                  padding: '3.5rem 2.5rem',
                   cursor: loading ? 'not-allowed' : 'pointer',
                   textAlign: 'left',
-                  transition: 'all 0.3s ease',
+                  transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
                   outline: 'none',
-                  opacity: (loading && !isLoading) ? 0.5 : 1,
+                  opacity: (loading && !isLoading) ? 0.3 : 1,
+                  boxShadow: '0 20px 50px rgba(0,0,0,0.4)'
                 }}
               >
                 <div style={{
-                  width: 56, height: 56, borderRadius: 16,
-                  background: `${role.accent}22`,
+                  width: 64, height: 64, borderRadius: 16,
+                  background: 'rgba(255,255,255,0.03)',
                   border: `1px solid ${role.accent}44`,
-                  display: 'grid', placeItems: 'center', marginBottom: '1.5rem',
+                  display: 'grid', placeItems: 'center', marginBottom: '2rem',
                 }}>
                   {isLoading
-                    ? <Loader2 size={24} color={role.accent} style={{ animation: 'spin 1s linear infinite' }} />
-                    : <Icon size={24} color={role.accent} />
+                    ? <Loader2 size={32} color={role.accent} className="spin" style={{ animation: 'spin 1s linear infinite' }} />
+                    : <Icon size={32} color={role.accent} />
                   }
                 </div>
-                <h3 style={{ color: '#fff', fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem' }}>
+                <h3 style={{ color: '#fff', fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.75rem', letterSpacing: '0.01em' }}>
                   {role.title}
                 </h3>
-                <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.9rem', lineHeight: 1.6 }}>
+                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '1rem', lineHeight: 1.7 }}>
                   {role.subtitle}
                 </p>
-                <div style={{ marginTop: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: role.accent, fontSize: '0.85rem', fontWeight: 600 }}>
-                  {isLoading ? 'Saving…' : 'Get Started →'}
+                <div style={{ marginTop: '2.5rem', display: 'flex', alignItems: 'center', gap: '0.6rem', color: role.accent, fontSize: '0.95rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                  {isLoading ? 'Syncing…' : 'Initialize Protocol'}
+                  {!isLoading && <span style={{ transition: 'transform 0.3s' }}>→</span>}
                 </div>
               </motion.button>
             );

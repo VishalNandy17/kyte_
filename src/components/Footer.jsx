@@ -21,61 +21,61 @@ export default function Footer() {
       </section>
 
       {/* Footer */}
-      <footer className="footer">
+      <footer className="footer" style={{ borderTop: '1px solid rgba(255,255,255,0.05)', background: '#060912' }}>
         <div className="container">
-          <div className="footer-top">
-            <div className="footer-brand">
-              <div style={{display:'flex', alignItems:'center', gap:'0.5rem', marginBottom:'0.25rem'}}>
-                <div className="logo-badge">OK</div>
-                <span style={{fontFamily:"'Space Grotesk', sans-serif", fontWeight:700, fontSize:'1.2rem'}}>
-                  WAVE IT
+          <div className="footer-top" style={{ padding: '5rem 0' }}>
+            <div className="footer-brand" style={{ maxWidth: 320 }}>
+              <div style={{display:'flex', alignItems:'center', gap:'0.75rem', marginBottom:'1.5rem'}}>
+                <div style={{ width: 32, height: 32, background: 'var(--gradient-hero)', borderRadius: 8, display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: '0.8rem' }}>K</div>
+                <span style={{fontFamily:"'Space Grotesk', sans-serif", fontWeight:800, fontSize:'1.4rem', letterSpacing: '0.1em'}}>
+                  KYTE FOUNDATION
                 </span>
               </div>
-              <p>Next-generation IT solutions for the digital era. Building tomorrow's infrastructure, today.</p>
-              <div className="footer-social">
-                {['f', 't', 'in', 'yt'].map((s, i) => (
-                  <a key={i} href="#" className="social-icon" aria-label={`Social ${s}`}>
-                    {s === 'f' ? '📘' : s === 't' ? '🐦' : s === 'in' ? '💼' : '▶️'}
+              <p style={{ color: 'rgba(255,255,255,0.5)', lineHeight: 1.8 }}>The decentralized AI-agent layer for trustless project execution. Building the future of autonomous work.</p>
+              <div className="footer-social" style={{ marginTop: '2rem' }}>
+                {['Twitter', 'GitHub', 'Discord', 'Docs'].map((s, i) => (
+                  <a key={i} href="#" className="social-icon" style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    {s}
                   </a>
                 ))}
               </div>
             </div>
 
-            <div className="footer-col">
-              <h4>Services</h4>
+            <div className="footer-col" style={{ paddingLeft: '2rem' }}>
+              <h4>Protocol</h4>
               <ul>
-                {['Rapid Deployment','Machine Learning','Cyber Security','Cloud Infrastructure','Digital Transformation'].map(l => (
-                  <li key={l}><a href="#services">{l}</a></li>
+                {['Smart Escrow','AI Code Audit','Bounty Market','Governance','Liquid Staking'].map(l => (
+                  <li key={l}><a href="#">{l}</a></li>
                 ))}
               </ul>
             </div>
 
             <div className="footer-col">
-              <h4>Company</h4>
+              <h4>Resources</h4>
               <ul>
-                {['About Us','Projects','Blog','Careers','Press'].map(l => (
-                  <li key={l}><a href={`#${l.toLowerCase().replace(' ','-')}`}>{l}</a></li>
+                {['Documentation','Whitepaper','API Reference','Network Stats','Brand Kit'].map(l => (
+                  <li key={l}><a href="#">{l}</a></li>
                 ))}
               </ul>
             </div>
 
             <div className="footer-col">
-              <h4>Contact</h4>
+              <h4>Support</h4>
               <ul>
-                <li><a href="mailto:hello@optivuskyte.io">hello@optivuskyte.io</a></li>
-                <li><a href="tel:+1234567890">+1 (234) 567-890</a></li>
-                <li><span style={{color:'#a7aabb', fontSize:'0.875rem'}}>San Francisco, CA</span></li>
-                <li><span style={{color:'#a7aabb', fontSize:'0.875rem'}}>London, UK</span></li>
+                <li><a href="mailto:support@kyte.network">Support Center</a></li>
+                <li><a href="#">Developer Portal</a></li>
+                <li><a href="#">Status Page</a></li>
+                <li><a href="#">Contact Lab</a></li>
               </ul>
             </div>
           </div>
 
-          <div className="footer-bottom">
-            <p>© {year} Optivus Kyte / WAVE IT. All rights reserved.</p>
-            <div style={{display:'flex', gap:'2rem'}}>
-              <a href="#" style={{fontSize:'0.8rem', color:'#a7aabb'}}>Privacy Policy</a>
-              <a href="#" style={{fontSize:'0.8rem', color:'#a7aabb'}}>Terms of Service</a>
-              <a href="#" style={{fontSize:'0.8rem', color:'#a7aabb'}}>Cookie Policy</a>
+          <div className="footer-bottom" style={{ borderTop: '1px solid rgba(255,255,255,0.05)', padding: '2rem 0' }}>
+            <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.85rem' }}>© {year} KYTE FOUNDATION. All rights reserved.</p>
+            <div style={{display:'flex', gap:'2.5rem'}}>
+              <a href="#" style={{fontSize:'0.8rem', color:'rgba(255,255,255,0.3)', transition: 'color 0.2s'}}>Privacy Policy</a>
+              <a href="#" style={{fontSize:'0.8rem', color:'rgba(255,255,255,0.3)', transition: 'color 0.2s'}}>Terms of Protocol</a>
+              <a href="#" style={{fontSize:'0.8rem', color:'rgba(255,255,255,0.3)', transition: 'color 0.2s'}}>Security Audit</a>
             </div>
           </div>
         </div>
