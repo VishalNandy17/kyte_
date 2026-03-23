@@ -135,7 +135,11 @@ export async function submitProject(token, data, address) {
     body: {
       action: 'submit',
       geminiApiKey: data.geminiApiKey,
-      data: data
+      data: {
+        ...data,
+        developerId: data.developerId,
+        developerEmail: data.developerEmail
+      }
     }
   });
 

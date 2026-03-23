@@ -5,7 +5,7 @@ import useStore from "../store/useStore";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 import {
-  Github, CheckCircle2, AlertCircle, Loader2, X, Shield, LogOut, ExternalLink, Search, Send, MessageSquare, Plus, Users, User, Settings as SettingsIcon, Code, Trophy, DollarSign
+  Github, CheckCircle2, AlertCircle, Loader2, X, Shield, LogOut, ExternalLink, Search, Send, MessageSquare, Plus, Users, User, Settings as SettingsIcon, Code, Trophy, DollarSign, Zap, ChevronRight
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import { useNavigate, Link } from "react-router-dom";
@@ -116,14 +116,16 @@ function SubmitModal({ project, geminiApiKey, onClose, onEval }) {
     try {
       const result = await submitProject(
         null,
-        {
-          projectId: project.id,
-          githubUrl,
-          appId: project.app_id,
-          geminiApiKey
-        },
-        session?.user?.id // This is a bit weird, should the wallet address be the sender? Yes.
-      );
+          {
+            projectId: project.id,
+            githubUrl,
+            appId: project.app_id,
+            geminiApiKey,
+            developerId: session?.user?.id,
+            developerEmail: session?.user?.email
+          },
+          session?.user?.id
+        );
 
       onEval(result);
       onClose();
@@ -275,11 +277,14 @@ function EvalOverlay({ evaluation, onClose }) {
 // ─── Developer Dashboard ──────────────────────────────────────
 export default function DeveloperDashboard() {
   const navigate = useNavigate();
+  const { userProfile, walletAddress, logout } = useStore();
+  const [googleUser, setGoogleUser] = useState(null);
   const [geminiApiKey, setGeminiApiKey] = useState("");
   const [projects, setProjects] = useState([]);
   const [mySubmissions, setMySubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [userBids, setUserBids] = useState([]);
   
   const [submitProject, setSubmitProject] = useState(null); // For code submission
   const [bidProject, setBidProject] = useState(null); // For bidding on OPEN projects
@@ -301,6 +306,13 @@ export default function DeveloperDashboard() {
         .or(`status.eq.OPEN,and(status.eq.IN_PROGRESS,developer_id.eq.${session.user.id})`)
         .order("created_at", { ascending: false });
       setProjects(data || []);
+
+      // Fetch user's bids
+      const { data: bids } = await supabase
+        .from("bids")
+        .select("project_id")
+        .eq("developer_id", session.user.id);
+      setUserBids(bids || []);
     } else {
       const { data } = await supabase
         .from("submissions")
@@ -569,9 +581,15 @@ export default function DeveloperDashboard() {
                     </div>
 
                     {p.status === 'OPEN' ? (
-                      <button className="btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={() => setBidProject(p)}>
-                        Place Proposal
-                      </button>
+                      userBids.some(b => b.project_id === p.id) ? (
+                        <div style={{ padding: "1rem", background: "rgba(102, 211, 255, 0.05)", borderRadius: "0.75rem", textAlign: "center", border: "1px solid rgba(102, 211, 255, 0.1)" }}>
+                          <span style={{ color: "#66d3ff", fontWeight: 700, fontSize: "0.9rem" }}>Proposal Pending...</span>
+                        </div>
+                      ) : (
+                        <button className="btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={() => setBidProject(p)}>
+                          Place Proposal
+                        </button>
+                      )
                     ) : p.status === 'COMPLETED' ? (
                       <button className="btn-primary" style={{ width: "100%", justifyContent: "center", background: 'linear-gradient(135deg, #4ade80, #22c55e)' }} onClick={() => handleClaim(p)}>
                          Claim Payment

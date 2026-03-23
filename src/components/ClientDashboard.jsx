@@ -6,7 +6,7 @@ import Navbar from "./Navbar";
 import Footer from "./Footer";
 import {
   Zap, Shield, Plus, X, CheckCircle2, AlertCircle, Loader2,
-  ExternalLink, LogOut, MessageSquare, User, Settings as SettingsIcon, ChevronRight
+  ExternalLink, LogOut, MessageSquare, User, Users, Settings as SettingsIcon, ChevronRight
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import { useNavigate, Link } from "react-router-dom";
@@ -359,14 +359,32 @@ function BidsModal({ project, onClose, onRefresh }) {
         .from("bids")
         .select(`
           *,
-          developer:developer_id (
+          user_profiles!developer_id (
             display_name,
             wallet_address
           )
         `)
         .eq("project_id", project.id)
         .order("created_at", { ascending: false });
-      if (!error && data) setBids(data);
+      
+      // If the explicit join fails due to missing FK, try a simple select
+      if (error) {
+        console.error("Join failed, trying simple select:", error);
+        const { data: simpleData, error: simpleErr } = await supabase
+          .from("bids")
+          .select("*")
+          .eq("project_id", project.id)
+          .order("created_at", { ascending: false });
+        
+        if (!simpleErr && simpleData) setBids(simpleData);
+      } else if (data) {
+        // Map user_profiles to developer for compatibility with existing UI
+        const mappedData = data.map(bid => ({
+          ...bid,
+          developer: bid.user_profiles
+        }));
+        setBids(mappedData);
+      }
       setLoading(false);
     }
     load();
@@ -555,7 +573,7 @@ export default function ClientDashboard() {
     if (!session) return;
     const { data } = await supabase
       .from("projects")
-      .select("*")
+      .select("*, bids(count), submissions(count)")
       .eq("owner_id", session.user.id)
       .order("created_at", { ascending: false });
     setProjects(data || []);
@@ -709,7 +727,11 @@ export default function ClientDashboard() {
                 <div style={{ padding: "1.25rem", background: "rgba(255,255,255,0.02)", borderRadius: "1rem", marginBottom: "2rem", display: "flex", justifyContent: "space-between", alignItems: "center", border: "1px solid rgba(255,255,255,0.05)" }}>
                    <div>
                      <div style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.3)", fontWeight: 700, marginBottom: "0.2rem" }}>ACTIVITY</div>
-                     <span style={{ color: "#fff", fontWeight: 700, fontSize: "0.95rem" }}>{p.submission_count || 0} Submissions</span>
+                     <span style={{ color: "#fff", fontWeight: 700, fontSize: "0.95rem" }}>
+                       {p.status === 'OPEN' 
+                         ? `${p.bids?.[0]?.count || 0} Bids` 
+                         : `${p.submissions?.[0]?.count || p.submission_count || 0} Submissions`}
+                     </span>
                    </div>
                    {p.best_score > 0 && (
                      <div style={{ textAlign: "right" }}>

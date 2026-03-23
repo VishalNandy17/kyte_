@@ -16,6 +16,13 @@ serve(async (req: Request) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    if (action === "test") {
+      return new Response(JSON.stringify({ status: "ok", message: "Bid engine is reachable" }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      });
+    }
+
     if (action === "submit_bid") {
       const { projectId, developerId, bidAmount, proposalText } = data;
 
@@ -31,22 +38,26 @@ serve(async (req: Request) => {
         })
         .select(`
           *,
-          project:project_id (title, owner_id)
+          projects:project_id (title, owner_id)
         `)
         .single();
 
-      if (bidErr) throw bidErr;
+      if (bidErr) {
+        console.error("Bid recording failed:", bidErr);
+        throw bidErr;
+      }
 
       // 2. Fetch Client Email (optional, or let send-email handle it by ID)
       // 3. Trigger notification via send-email function
       try {
+        const projectData = bid.projects || bid.project; // Compatibility with both join syntaxes
         await supabase.functions.invoke("send-email", {
           body: {
             action: "bid_received",
             payload: {
-              clientId: bid.project.owner_id,
+              clientId: projectData.owner_id,
               developerId: developerId,
-              projectTitle: bid.project.title,
+              projectTitle: projectData.title,
               bidAmount: bidAmount
             }
           }

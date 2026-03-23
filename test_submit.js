@@ -1,26 +1,21 @@
+// Terminal test script for bid-engine Edge Function verification
 async function test() {
   const supabaseUrl = "https://ugesrwzveiybyoidimvo.supabase.co";
-  const supabaseKey = "sb_publishable_SQT0pxc5Y4E5jS6faWn9fA_2Mvc9h3U";
-  
-  const res = await fetch(`${supabaseUrl}/functions/v1/gemini-audit`, {
+  const anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVnZXNyd3p2ZWl5YnlvaWRpbXZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwNzMxNjIsImV4cCI6MjA4OTY0OTE2Mn0.5r1ECxh6nQwf5UQ9gyk0kmgnhOUwIcPyz1KlTPIL5K0";
+
+  // Test 1: Health check
+  const health = await fetch(`${supabaseUrl}/functions/v1/bid-engine`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${supabaseKey}`
+      'Authorization': `Bearer ${anonKey}`,
+      'apikey': anonKey
     },
-    body: JSON.stringify({
-      action: 'submit',
-      geminiApiKey: 'dummy',
-      data: {
-        projectId: "9812309b-434e-4edc-8baa-1c4d4dbab441",
-        githubUrl: "https://github.com/VishalNandy17/kyte_"
-      }
-    })
+    body: JSON.stringify({ action: 'test' })
   });
-  
-  const text = await res.text();
-  console.log("Status:", res.status);
-  console.log("Response:", text);
+  console.log("=== Health Check ===");
+  console.log("Status:", health.status);
+  console.log("Response:", await health.text());
 }
 
 test();

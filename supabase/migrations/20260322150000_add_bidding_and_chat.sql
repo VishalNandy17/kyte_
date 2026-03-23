@@ -7,9 +7,9 @@ ADD COLUMN IF NOT EXISTS payment_status TEXT DEFAULT 'PENDING';
 
 -- Create bids table
 CREATE TABLE IF NOT EXISTS public.bids (
-    id UUID DEFAULT extensions.uuid_generate_v4() PRIMARY KEY,
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     project_id UUID REFERENCES public.projects(id) ON DELETE CASCADE NOT NULL,
-    developer_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    developer_id UUID REFERENCES public.user_profiles(id) ON DELETE CASCADE NOT NULL,
     bid_amount NUMERIC NOT NULL,
     proposal_text TEXT NOT NULL,
     status TEXT DEFAULT 'PENDING',
@@ -47,7 +47,7 @@ CREATE POLICY "Clients can update bids on their projects" ON public.bids
 
 -- Create messages table for Real-Time Chat
 CREATE TABLE IF NOT EXISTS public.messages (
-    id UUID DEFAULT extensions.uuid_generate_v4() PRIMARY KEY,
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     project_id UUID REFERENCES public.projects(id) ON DELETE CASCADE NOT NULL,
     sender_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
     content TEXT NOT NULL,
